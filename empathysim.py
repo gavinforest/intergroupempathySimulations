@@ -1,6 +1,6 @@
 # ---------------- Imports and top level parameters --------------------
 import numpy as np
-import matplotlib.pylpot as plt
+import matplotlib.pyplot as plt
 import json
 
 DEBUG = True
@@ -33,6 +33,9 @@ class DonationGame:
 	def __init__(self, benefit, cost):
 		self.b = benefit
 		self.c = cost
+
+		#Format is for matrix being the row players payoff,
+		# where 0 stands for Defect, 1 for Cooperate
 		self.payoffMatrix = np.array([[0, benefit],[-cost, benefit - cost]])
 
 	def moveError(self, strat):
@@ -55,7 +58,7 @@ class Agent:
 		self.type = AgentType
 		self.ID = ID
 		self.empathy = [empathy0, empathy1]
-		if strat != None:
+		if strat is not None:
 			self.strategy = strat
 		else:
 			self.strategy = ALLC
@@ -72,7 +75,7 @@ def updateReputations(pop, reputationUpdates):
 				reputationUpdates[j] = pop[i].reputations[j]
 
 
-		pop[i].reputations = reputationUpdates
+		pop[i].reputations = reputationUpdates[i]
 
 	return pop
 
@@ -80,9 +83,7 @@ class populationStatistics:
 	def __init__(self):
 		self.statisticsList = []
 
-
-
-	def generateStatistics(population, generation):
+	def generateStatistics(self, population, generation):
 
 		type0 = [agent for agent in population if agent.type == 0]
 		type1 = [agent for agent in population if agent.type == 1]
@@ -121,6 +122,14 @@ class populationStatistics:
 
 		self.statisticsList.append(statistics)
 
+	def plotTypes(self):
+		type0popSequence = [stat["type0"]["total"] for stat in statistics.statisticsList]
+		type1popSequence = [stat["type1"]["total"] for stat in statistics.statisticsList]
+
+		plt.plot(type0popSequence, 'bo')
+		plt.plot(type1popSequence, "g-")
+		plt.show()
+
 	
 
 
@@ -151,15 +160,28 @@ for i in range(NUMGENERATIONS):
 				agentRep = adversary.reputations[j]
 				adversaryRep = agent.reputations[k]
 
+				if DEBUG:
+					print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
+
 				agentAction = agent.strategy[adversaryRep]
 				adversaryAction = adversary.strategy[agentRep]
 
+				if DEBUG:
+					print(" ------ agent strategy, adversary strategy: " + str(agent.strategy) + " , " + str(adversary.strategy))
+
+				if DEBUG:
+					print(" ------ agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 			
 				agentAction = game.moveError(agentAction)
 				adversaryAction = game.moveError(adversaryAction)
 
+				if DEBUG:
+					print(" ------ errored agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 				
 				agentPayoff, adversaryPayoff = game.play(agentAction, adversaryAction)
+
+				if DEBUG:
+					print(" ------ Agent Payoff: " + str(agentPayoff))
 
 				roundPayoffs[j] += agentPayoff
 				roundPayoffs[k] += adversaryPayoff
@@ -180,6 +202,8 @@ for i in range(NUMGENERATIONS):
 				count += 1
 
 	population = updateReputations(population, reputationUpdates)
+	if DEBUG:
+		print("--- updated reputations for generation: " + str(i))
 
 	#now for strategy updating via social contagion
 
@@ -191,29 +215,32 @@ for i in range(NUMGENERATIONS):
 	pCopy = 1.0 / ( 1 + np.exp( - w * (roundPayoffs[ind2] - roundPayoffs[ind1])))
 
 	if np.random.random() < pCopy:
+		if DEBUG:
+			print(" --- social imitation occuring in generation: " + str(i))
+
 		if population[ind1].type == population[ind2].type:
 			population[ind1].strategy = population[ind2].strategy
 		else:
 			population[ind1].strategy = np.flip(population[ind2].strategy)
 
 
-	for i in range(len(population)):
+	for j in range(len(population)):
 		if np.random.random() < u:
+			if DEBUG:
+				print("------ random mutation strategy drift occured to individual: " + str(j))
 			np.random.shuffle(STRATEGIES)
 			newstrat = STRATEGIES[0]
+			population[j].strategy = newstrat
 
 	statistics.generateStatistics(population, i)
 
 	if DEBUG:
-		print("Completed Generation: " + str(i))
+		print("**Completed Generation: " + str(i))
 
 
 # ------------------- Simulation Statistics Analysis ---------------------
 
-type0popSequence = [stat["type0"]["total"] for stat in statistics.statisticsList]
-type1popSequence = [stat["type1"]["total"] for stat in statistics.statisticsList]
-
-
+statistics.plotTypes()
 
 
 
