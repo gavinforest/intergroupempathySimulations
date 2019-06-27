@@ -1,11 +1,18 @@
+# ---------------- Imports and top level parameters --------------------
 import numpy as np
+import matplotlib.pylpot as plt
+import json
 
+DEBUG = True
+
+
+# ----------------  Simulation parameters  ----------------
 
 NUMAGENTS = 100
 
 NUMGENERATIONS = 1500
 
-NORM = np.array([[]])
+NORM = np.array([[1, 0], [0 , 1]])
 
 #observation error
 Eobs = 0.0
@@ -18,6 +25,9 @@ w = 1.0
 
 #random strategy adoption
 u = 0.0025
+
+
+# --------------- Simulation Classes ---------------------
 
 class DonationGame:
 	def __init__(self, benefit, cost):
@@ -34,15 +44,21 @@ class DonationGame:
 	def play(self, strat1, strat2):
 		return self.payoffMatrix[strat1,strat2], self.payoffMatrix[strat2, strat1]
 
+ALLC = np.array([1,1])
+DISC = np.array([0,1])
+ALLD = np.array([0,0])
+
+STRATEGIES = [ALLC, DISC, ALLD]
+
 class Agent:
 	def __init__(self, AgentType, ID, empathy0 = 0.0, empathy1 = 0.0, strat = None):
 		self.type = AgentType
 		self.ID = ID
 		self.empathy = [empathy0, empathy1]
-		if self.strategy != None:
+		if strat != None:
 			self.strategy = strat
 		else:
-			self.strategy = np.array([1,1])
+			self.strategy = ALLC
 
 		self.reputations = [1 for i in range(NUMAGENTS)]
 
@@ -60,17 +76,63 @@ def updateReputations(pop, reputationUpdates):
 
 	return pop
 
+class populationStatistics:
+	def __init__(self):
+		self.statisticsList = []
+
+
+
+	def generateStatistics(population, generation):
+
+		type0 = [agent for agent in population if agent.type == 0]
+		type1 = [agent for agent in population if agent.type == 1]
+
+		TotalType0 = len(type0)
+		TotalType1 = len(type1)
+
+
+		ALLCType0 =0
+		DISCType0 = 0
+		ALLDType0 = 0
+
+		for agent in type0:
+			if np.array_equal(agent.strategy, ALLC):
+				ALLCType0 += 1
+			elif np.array_equal(agent.strategy, ALLD):
+				ALLDType0 += 1
+			else:
+				DISCType0 += 1
+
+
+		ALLCType1 = 0
+		DISCType1 = 0
+		ALLDType1 = 0
+
+		for agent in type1:
+			if np.array_equal(agent.strategy, ALLC):
+				ALLCType1 +=1
+			elif np.array_equal(agent.strategy, ALLD):
+				ALLDType1 += 1
+			else:
+				DISCType1 += 1
+
+		statistics = {"generation": generation, "type0": {"total": TotalType0, "ALLC": ALLCType0, "DISC": DISCType0, "ALLD": ALLDType0},
+												"type1": {"total": TotalType1, "ALLC": ALLCType1, "DISC": DISCType1, "ALLD": ALLDType1}}
+
+		self.statisticsList.append(statistics)
+
+	
+
+
+# ------------------- Simulation Initialization ----------------
+
 game = DonationGame(1.3, 1)
 
-ALLC = np.array([1,1])
-DISC = np.array([0,1])
-ALLD = np.array([0,0])
+population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 3]) for i in range(NUMAGENTS)]
 
-STRATEGIES = [ALLC, DISC, ALLD]
+statistics = populationStatistics()
 
-
-
-population = [Agent(int(np.floor(i / 50.0)), i) for i in range(NUMAGENTS)]
+# ------------------- Generation Loop ------------------------
 
 for i in range(NUMGENERATIONS):
 	roundPayoffs = np.zeros(NUMAGENTS)
@@ -117,7 +179,6 @@ for i in range(NUMGENERATIONS):
 
 				count += 1
 
-
 	population = updateReputations(population, reputationUpdates)
 
 	#now for strategy updating via social contagion
@@ -141,15 +202,16 @@ for i in range(NUMGENERATIONS):
 			np.random.shuffle(STRATEGIES)
 			newstrat = STRATEGIES[0]
 
-	
+	statistics.generateStatistics(population, i)
+
+	if DEBUG:
+		print("Completed Generation: " + str(i))
 
 
+# ------------------- Simulation Statistics Analysis ---------------------
 
-
-
-
-
-
+type0popSequence = [stat["type0"]["total"] for stat in statistics.statisticsList]
+type1popSequence = [stat["type1"]["total"] for stat in statistics.statisticsList]
 
 
 
