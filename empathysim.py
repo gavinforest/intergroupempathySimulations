@@ -80,6 +80,37 @@ def updateReputations(pop, reputationUpdates):
 
 	return pop
 
+def imitationUpdate(population, payoffs):
+	individuals = np.random.choice(range(NUMAGENTS), size = 2)
+
+	ind1 = individuals[0]
+	ind2 = individuals[1]
+
+	pCopy = 1.0 / ( 1 + np.exp( - w * (payoffs[ind2] - payoffs[ind1])))
+
+	if np.random.random() < pCopy:
+		if PROGRESSVERBOSE:
+			print(" --- social imitation occuring in generation: " + str(i))
+
+		if population[ind1].type == population[ind2].type:
+			population[ind1].strategy = population[ind2].strategy
+			population[ind1].type = population[ind2].type
+		else:
+			population[ind1].strategy = np.flip(population[ind2].strategy)
+
+
+	for j in range(len(population)):
+		if np.random.random() < u:
+			if PROGRESSVERBOSE:
+				print("------ random mutation strategy drift occured to individual: " + str(j))
+			np.random.shuffle(STRATEGIES)
+			newstrat = STRATEGIES[0]
+			population[j].strategy = newstrat
+
+	return population
+
+
+
 class populationStatistics:
 	def __init__(self):
 		self.statisticsList = []
@@ -217,30 +248,7 @@ for i in range(NUMGENERATIONS):
 
 	#now for strategy updating via social contagion
 
-	individuals = np.random.choice(range(NUMAGENTS), size = 2)
-
-	ind1 = individuals[0]
-	ind2 = individuals[1]
-
-	pCopy = 1.0 / ( 1 + np.exp( - w * (roundPayoffs[ind2] - roundPayoffs[ind1])))
-
-	if np.random.random() < pCopy:
-		if PROGRESSVERBOSE:
-			print(" --- social imitation occuring in generation: " + str(i))
-
-		if population[ind1].type == population[ind2].type:
-			population[ind1].strategy = population[ind2].strategy
-		else:
-			population[ind1].strategy = np.flip(population[ind2].strategy)
-
-
-	for j in range(len(population)):
-		if np.random.random() < u:
-			if PROGRESSVERBOSE:
-				print("------ random mutation strategy drift occured to individual: " + str(j))
-			np.random.shuffle(STRATEGIES)
-			newstrat = STRATEGIES[0]
-			population[j].strategy = newstrat
+	population = imitationUpdate(population, roundPayoffs)
 
 	statistics.generateStatistics(population, i)
 
