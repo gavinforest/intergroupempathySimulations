@@ -3,7 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 
-DEBUG = True
+DEBUG = False
+PROGRESSVERBOSE = True
 
 
 # ----------------  Simulation parameters  ----------------
@@ -71,8 +72,8 @@ def updateReputations(pop, reputationUpdates):
 	for i in range(len(pop)):
 
 		for j in range(len(reputationUpdates)):
-			if reputationUpdates[j] is None:
-				reputationUpdates[j] = pop[i].reputations[j]
+			if reputationUpdates[i][j] is None:
+				reputationUpdates[i][j] = pop[i].reputations[j]
 
 
 		pop[i].reputations = reputationUpdates[i]
@@ -162,6 +163,9 @@ for i in range(NUMGENERATIONS):
 
 				if DEBUG:
 					print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
+					if type(agentRep) != int:
+						print("------------ adversary reputation list: " + str(adversary.reputations))
+						print("------------ agentRep type: " + str(type(agentRep)))
 
 				agentAction = agent.strategy[adversaryRep]
 				adversaryAction = adversary.strategy[agentRep]
@@ -192,17 +196,23 @@ for i in range(NUMGENERATIONS):
 				judge = population[judgeNumber]
 
 				if np.random.random() < judge.empathy[agent.type]:
-					newrep = NORM[agentAction, adversaryRep]
+					newrep = int(NORM[agentAction, adversaryRep])
+
+					if DEBUG:
+						print("------ Empathetic Judgement occured")
 
 				else:
-					newrep = NORM[agentAction, judge.reputations[k]]
+					if DEBUG:
+						print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
+						print("------ judge reputation is: " + str(judge.reputations[k]))
+					newrep = int(NORM[agentAction, judge.reputations[k]])
 
 				reputationUpdates[judgeNumber][j] = newrep
 
 				count += 1
 
 	population = updateReputations(population, reputationUpdates)
-	if DEBUG:
+	if PROGRESSVERBOSE:
 		print("--- updated reputations for generation: " + str(i))
 
 	#now for strategy updating via social contagion
@@ -215,7 +225,7 @@ for i in range(NUMGENERATIONS):
 	pCopy = 1.0 / ( 1 + np.exp( - w * (roundPayoffs[ind2] - roundPayoffs[ind1])))
 
 	if np.random.random() < pCopy:
-		if DEBUG:
+		if PROGRESSVERBOSE:
 			print(" --- social imitation occuring in generation: " + str(i))
 
 		if population[ind1].type == population[ind2].type:
@@ -226,7 +236,7 @@ for i in range(NUMGENERATIONS):
 
 	for j in range(len(population)):
 		if np.random.random() < u:
-			if DEBUG:
+			if PROGRESSVERBOSE:
 				print("------ random mutation strategy drift occured to individual: " + str(j))
 			np.random.shuffle(STRATEGIES)
 			newstrat = STRATEGIES[0]
@@ -234,7 +244,7 @@ for i in range(NUMGENERATIONS):
 
 	statistics.generateStatistics(population, i)
 
-	if DEBUG:
+	if PROGRESSVERBOSE:
 		print("**Completed Generation: " + str(i))
 
 
