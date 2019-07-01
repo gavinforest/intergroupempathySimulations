@@ -26,19 +26,19 @@ Ecoop = 0.0
 w = 1.0
 
 #random strategy adoption
-ustrat = 0.001
+ustrat = 0.00
 
 #random type mutation 0 --> 1
-u01 = 0.001
+u01 = 0.00
 
 #random type mutation 1 --> 0
-u10 = 0.001
+u10 = 0.00
 
 #cooperation benefit
-gameBenefit = 1.0
+gameBenefit = 0.0
 
 #cooperation cost
-gameCost = -1.1
+gameCost = -2
 
 
 # --------------- Simulation Classes ---------------------
@@ -50,7 +50,7 @@ class DonationGame:
 
 		#Format is for matrix being the row players payoff,
 		# where 0 stands for Defect, 1 for Cooperate
-		self.payoffMatrix = np.array([[0, benefit],[-cost, benefit - cost]])
+		self.payoffMatrix = np.array([[0.0, benefit],[-cost, benefit - cost]])
 
 	def moveError(self, strat):
 		if np.random.random() < Ecoop and strat:
@@ -176,7 +176,7 @@ class populationStatistics:
 		plt.plot(type1popSequence, "g-")
 		plt.show()
 
-	def plotCooperationRate(self, coopByType = False, stratsByType = True):
+	def plotComprehensive(self):
 		type0coopFreqs = []
 		type1coopFreqs = []
 
@@ -207,42 +207,54 @@ class populationStatistics:
 		totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
 
 
-		numPlots = 2
+		numPlotCols = 3
+		numPlotRows = 1
 
-		if stratsByType:
-			numPlots = 3
+		plt.subplot(numPlotCols,numPlotRows,1)
 
-		plt.subplot(numPlots,1,1)
+		plt.plot(type0coopFreqs, 'b-')
+		plt.plot(type1coopFreqs, "g-")
+		plt.plot([(a + b) / 2.0 for a,b in zip(type1coopFreqs, type0coopFreqs)], color = "grey", linestyle= "dashed")
+		plt.title("Cooperation Rate by Type")
 
-		if coopByType:
-			plt.plot(type0coopFreqs, 'bo')
-			plt.plot(type1coopFreqs, "g-")
-			plt.title("Cooperation Rate by Type")
-
-		else:
-			plt.plot(totalCoopFreq)
-			plt.title("Total Cooperation Rate")
 
 		
-		if stratsByType:
-			plt.subplot(numPlots, 1 , 2)
-			plt.plot(type0AllCFreq, "g-")
-			plt.plot(type0DiscFreq, "y-")
-			plt.plot(type0AllDFreq, "r-")
-			plt.title("Type A Strategy Frequencies")
+		AllCFreq = [(a + b) / 2.0 for a,b in zip(type1AllCFreq, type0AllCFreq)]
+		DiscFreq = [(a + b) / 2.0 for a,b in zip(type1DiscFreq, type0DiscFreq)]
+		AllDFreq = [(a + b) / 2.0 for a,b in zip(type1AllDFreq, type0AllDFreq)]
 
-			plt.subplot(numPlots, 1, 3)
-			plt.plot(type1AllCFreq, "g-")
-			plt.plot(type1DiscFreq, "y-")
-			plt.plot(type1AllDFreq, "r-")
-			plt.title("Type B Strategy Frequencies")
 
-		else:
-			plt.subplot(numPlots, 1 , 2)
-			plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllCFreq, type0AllCFreq)], "g-")
-			plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1DiscFreq, type0DiscFreq)], "y-")
-			plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllDFreq, type0AllDFreq)], "r-")
-			plt.plot("Whole Population Strategy Frequencies")
+		plt.subplot(numPlotCols,numPlotRows, 2)
+		plt.plot(type0AllCFreq, "g-")
+		plt.plot(type0DiscFreq, "y-")
+		plt.plot(type0AllDFreq, "r-")
+
+		plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
+		plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
+		plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
+
+		plt.title("Type A Strategy Frequencies")
+
+
+
+		plt.subplot(numPlotCols,numPlotRows, 3)
+		plt.plot(type1AllCFreq, "g-")
+		plt.plot(type1DiscFreq, "y-")
+		plt.plot(type1AllDFreq, "r-")
+
+		plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
+		plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
+		plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
+
+		plt.title("Type B Strategy Frequencies")
+
+
+
+		# plt.subplot(numPlots, 1 , 2)
+		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllCFreq, type0AllCFreq)], "g-")
+		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1DiscFreq, type0DiscFreq)], "y-")
+		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllDFreq, type0AllDFreq)], "r-")
+		# plt.plot("Whole Population Strategy Frequencies")
 
 
 		plt.show()
@@ -354,7 +366,7 @@ for i in range(NUMGENERATIONS):
 
 # ------------------- Simulation Statistics Analysis ---------------------
 
-statistics.plotCooperationRate()
+statistics.plotComprehensive()
 
 
 
