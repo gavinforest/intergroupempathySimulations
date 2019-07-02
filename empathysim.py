@@ -89,7 +89,7 @@ class Agent:
 		else:
 			self.strategy = ALLC
 
-		self.reputations = [1 for i in range(NUMAGENTS)]
+		self.reputations = np.random.randint(2, size = NUMAGENTS)
 
 def imitationUpdate(population, payoffs):
 	individuals = np.random.choice(range(NUMAGENTS), size = 2)
