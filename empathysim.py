@@ -26,7 +26,7 @@ Ecoop = 0.0
 w = 1.0
 
 #random strategy adoption
-ustrat = 0.00
+ustrat = 0.001
 
 #random type mutation 0 --> 1
 u01 = 0.00
@@ -35,10 +35,10 @@ u01 = 0.00
 u10 = 0.00
 
 #cooperation benefit
-gameBenefit = 0.0
+gameBenefit = 2.5
 
 #cooperation cost
-gameCost = -2
+gameCost = 1
 
 
 # --------------- Simulation Classes ---------------------
@@ -146,7 +146,7 @@ class populationStatistics:
 		if DEBUG:
 			print("--- generating statistics for generation: " + str(generation))
 
-		self.populationHistory[generation] = population[:]
+		# self.populationHistory[generation] = population[:]
 
 
 
@@ -264,9 +264,9 @@ class populationStatistics:
 
 		totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
 
-
+		plt.figure(1)
 		numPlotsCol = 3
-		numPlotsRow = 2
+		numPlotsRow = 1
 
 		plt.subplot(numPlotsCol,numPlotsRow,1)
 
@@ -306,6 +306,9 @@ class populationStatistics:
 
 		plt.title("Type B Strategy Frequencies")
 
+		plt.figure(2)
+
+
 		strats = ["ALLC", "DISC", "ALLD"]
 
 		averageRepALLC = [0 for j in range(NUMGENERATIONS)]
@@ -328,7 +331,7 @@ class populationStatistics:
 
 
 		for i, strat in enumerate(strats):
-			plt.subplot(numPlotsCol, numPlotsRow, 4 + i)
+			plt.subplot(numPlotsCol, numPlotsRow, i + 1)
 			plt.title("Reputations of Strategies as Viewed by " + strat)
 
 			ALLCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLC"] for j in range(NUMGENERATIONS)]
@@ -391,6 +394,7 @@ for i in range(NUMGENERATIONS):
 	for j, agent in enumerate(population):
 
 		for k, adversary in enumerate(population[j:]):
+
 			agentRep = adversary.reputations[agent.ID]
 			adversaryRep = agent.reputations[adversary.ID]
 
@@ -427,6 +431,8 @@ for i in range(NUMGENERATIONS):
 
 			judgeNumber = judgeCycles[len(population) + (j - 1) - (k + 1)] 
 			judge = population[judgeNumber]
+
+			newrep = None
 
 			if np.random.random() < judge.empathy[agent.type]:
 				newrep = int(NORM[agentAction, adversaryRep])
