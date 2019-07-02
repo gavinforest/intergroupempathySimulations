@@ -40,26 +40,15 @@ gameBenefit = 2.5
 #cooperation cost
 gameCost = 1
 
+#payoff matrix
+payoffMatrix = np.array([[0.0, gameBenefit],[-gameCost, gameBenefit - gameCost]])
 
 # --------------- Simulation Classes ---------------------
-
-class DonationGame:
-	def __init__(self, benefit, cost):
-		self.b = benefit
-		self.c = cost
-
-		#Format is for matrix being the row players payoff,
-		# where 0 stands for Defect, 1 for Cooperate
-		self.payoffMatrix = np.array([[0.0, benefit],[-cost, benefit - cost]])
-
-	def moveError(self, strat):
-		if np.random.random() < Ecoop and strat:
-			return 0
-		else:
-			return strat
-
-	def play(self, strat1, strat2):
-		return self.payoffMatrix[strat1,strat2], self.payoffMatrix[strat2, strat1]
+def moveError(strat):
+	if np.random.random() < Ecoop and strat:
+		return 0
+	else:
+		return strat
 
 ALLC = np.array([1,1])
 DISC = np.array([0,1])
@@ -89,7 +78,7 @@ class Agent:
 		else:
 			self.strategy = ALLC
 
-		self.reputations = [1 for i in range(NUMAGENTS)]
+		# self.reputations = [1 for i in range(NUMAGENTS)]
 
 def imitationUpdate(population, payoffs):
 	individuals = np.random.choice(range(NUMAGENTS), size = 2)
@@ -356,9 +345,9 @@ class populationStatistics:
 
 # ------------------- Simulation Initialization ----------------
 
-game = DonationGame(gameBenefit, gameCost)
-
 population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 3]) for i in range(NUMAGENTS)]
+
+reputations = np.ones((NUMAGENTS, NUMAGENTS))
 
 judgeCycles = list(range(len(population))) * 2
 
@@ -387,7 +376,7 @@ def updateReputations(pop, reputationUpdates, generation):
 for i in range(NUMGENERATIONS):
 	roundPayoffs = np.zeros(NUMAGENTS)
 
-	reputationUpdates = [[None for x in range(NUMAGENTS)] for y in range(NUMAGENTS)]
+	reputationUpdates = np.zeros((NUMAGENTS, NUMAGENTS))
 
 	np.random.shuffle(population)
 
@@ -395,8 +384,8 @@ for i in range(NUMGENERATIONS):
 
 		for k, adversary in enumerate(population[j:]):
 
-			agentRep = adversary.reputations[agent.ID]
-			adversaryRep = agent.reputations[adversary.ID]
+			agentRep = reputations[adversary.ID, agent.ID]
+			adversaryRep = reputations[agent.ID, adversary.ID]
 
 			if DEBUG:
 				print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
@@ -413,19 +402,19 @@ for i in range(NUMGENERATIONS):
 			if DEBUG:
 				print(" ------ agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 		
-			agentAction = game.moveError(agentAction)
-			adversaryAction = game.moveError(adversaryAction)
+			agentAction = moveError(agentAction)
+			adversaryAction = moveError(adversaryAction)
 
 			if DEBUG:
 				print(" ------ errored agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 			
-			agentPayoff, adversaryPayoff = game.play(agentAction, adversaryAction)
+			agentPayoff, adversaryPayoff = payoffMatrix[agentAction, adversaryAction], payoffMatrix[adversaryAction,agentAction]
 
 			if DEBUG:
 				print(" ------ Agent Payoff: " + str(agentPayoff))
 
-			roundPayoffs[j] += agentPayoff
-			roundPayoffs[k] += adversaryPayoff
+			roundPayoffs[agent.ID] += agentPayoff
+			roundPayoffs[adversary.ID] += adversaryPayoff
 
 			#judgement by judger
 
@@ -446,7 +435,7 @@ for i in range(NUMGENERATIONS):
 					print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
 				newrep = int(NORM[agentAction, judge.reputations[adversary.ID]])
 
-			reputationUpdates[judgeNumber][agent.ID] = newrep
+			reputationUpdates[judge.ID, agent.ID] = newrep
 
 
 	#calling here so as to not confuse the population that resulted in this outcome 
