@@ -67,6 +67,18 @@ ALLD = np.array([0,0])
 
 STRATEGIES = [ALLC, DISC, ALLD]
 
+def stratToString(strategy):
+	if np.array_equal(strategy, ALLC):
+		return "ALLC"
+	elif np.array_equal(strategy, DISC):
+		return "DISC"
+	elif np.array_equal(strategy, ALLD):
+		return "ALLD"
+	else:
+		if DEBUG:
+			print("Got strange strategy: " + str(strategy))
+		return "ERROR"
+
 class Agent:
 	def __init__(self, AgentType, ID, empathy0 = 0.0, empathy1 = 0.0, strat = None):
 		self.type = AgentType
@@ -91,10 +103,14 @@ def imitationUpdate(population, payoffs):
 		if PROGRESSVERBOSE:
 			print(" --- social imitation occuring in generation: " + str(i))
 
-		if population[ind1].type == population[ind2].type:
-			population[ind1].strategy = population[ind2].strategy
-		else:
-			population[ind1].strategy = np.flip(population[ind2].strategy) #************** Important Assumption
+
+		population[ind1].strategy = population[ind2].strategy
+		# if population[ind1].type == population[ind2].type:
+		# 	population[ind1].strategy = population[ind2].strategy
+		# else:
+
+			# population[ind1].strategy = np.flip(population[ind2].strategy) Reputations based Gavin!
+
 
 			#switching types via imitation
 			#population[ind1].type = population[ind2].type
@@ -123,8 +139,18 @@ def imitationUpdate(population, payoffs):
 class populationStatistics:
 	def __init__(self):
 		self.statisticsList = [ None for k in range(NUMGENERATIONS)]
+		self.populationHistory = [None for k in range(NUMGENERATIONS)]
 
-	def generateProportionStatistics(self, population, generation):
+	def generateStatistics(self, population, generation):
+
+		if DEBUG:
+			print("--- generating statistics for generation: " + str(generation))
+
+		self.populationHistory[generation] = population[:]
+
+
+
+		#TYPE PROPORTION STATISTICS
 
 		type0 = [agent for agent in population if agent.type == 0]
 		type1 = [agent for agent in population if agent.type == 1]
@@ -158,7 +184,7 @@ class populationStatistics:
 			else:
 				DISCType1 += 1
 
-		statistics = {"generation": generation, "type0": {"total": TotalType0, "ALLC": ALLCType0, "DISC": DISCType0, "ALLD": ALLDType0},
+		statistics = {"type0": {"total": TotalType0, "ALLC": ALLCType0, "DISC": DISCType0, "ALLD": ALLDType0},
 												"type1": {"total": TotalType1, "ALLC": ALLCType1, "DISC": DISCType1, "ALLD": ALLDType1}}
 
 		if self.statisticsList[generation] is not None:
@@ -167,6 +193,38 @@ class populationStatistics:
 		else:
 			self.statisticsList[generation] = {}
 			self.statisticsList[generation]["proportions"] = statistics
+
+
+		repStats = {}
+
+		# typeStratPairPointers = [(agent.type, stratToString(agent.strategy)) for agent in population]
+		# typeStratPairTargets = [None for i in range(NUMAGENTS)]
+		# for agent in population:
+		# 	typeStratPairTargets[agent.ID] = (agent.type, stratToString(agent.strategy))
+
+		stratStringsByID = [None for agent in population]
+		for agent in population:
+			stratStringsByID[agent.ID] = stratToString(agent.strategy)
+
+		repStats["viewsFromTo"] = {}
+
+		strats = ["ALLC", "DISC", "ALLD"]
+		for stratType in strats:
+			repStats["viewsFromTo"][stratType] = {}
+
+			for strat in strats:
+				repStats["viewsFromTo"][stratType][strat] = []
+			
+			for agent in population:
+				for i, strat in enumerate(stratStringsByID):
+					repStats["viewsFromTo"][stratType][strat].append(agent.reputations[i])
+
+			for strat in strats:
+				repStats["viewsFromTo"][stratType][strat] = np.average(repStats["viewsFromTo"][stratType][strat])
+
+		self.statisticsList[generation]["reputations"] = repStats
+			
+
 
 	def plotTypes(self):
 		type0popSequence = [stat["proportions"]["type0"]["total"] for stat in statistics.statisticsList]
@@ -207,10 +265,10 @@ class populationStatistics:
 		totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
 
 
-		numPlotCols = 3
-		numPlotRows = 1
+		numPlotsCol = 3
+		numPlotsRow = 2
 
-		plt.subplot(numPlotCols,numPlotRows,1)
+		plt.subplot(numPlotsCol,numPlotsRow,1)
 
 		plt.plot(type0coopFreqs, 'b-')
 		plt.plot(type1coopFreqs, "g-")
@@ -224,7 +282,7 @@ class populationStatistics:
 		AllDFreq = [(a + b) / 2.0 for a,b in zip(type1AllDFreq, type0AllDFreq)]
 
 
-		plt.subplot(numPlotCols,numPlotRows, 2)
+		plt.subplot(numPlotsCol,numPlotsRow, 2)
 		plt.plot(type0AllCFreq, "g-")
 		plt.plot(type0DiscFreq, "y-")
 		plt.plot(type0AllDFreq, "r-")
@@ -237,7 +295,7 @@ class populationStatistics:
 
 
 
-		plt.subplot(numPlotCols,numPlotRows, 3)
+		plt.subplot(numPlotsCol,numPlotsRow, 3)
 		plt.plot(type1AllCFreq, "g-")
 		plt.plot(type1DiscFreq, "y-")
 		plt.plot(type1AllDFreq, "r-")
@@ -248,13 +306,45 @@ class populationStatistics:
 
 		plt.title("Type B Strategy Frequencies")
 
+		strats = ["ALLC", "DISC", "ALLD"]
+
+		averageRepALLC = [0 for j in range(NUMGENERATIONS)]
+		averageRepALLD = [0 for j in range(NUMGENERATIONS)]		
+		averageRepDISC = [0 for j in range(NUMGENERATIONS)]
+
+		for j in range(NUMGENERATIONS):
+			averageRepALLC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLC"]
+			averageRepALLC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLC"]
+			averageRepALLC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLC"]
+
+			averageRepALLD[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLD"]
+			averageRepALLD[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLD"]
+			averageRepALLD[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLD"]
+
+			averageRepDISC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["DISC"]
+			averageRepDISC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["DISC"]
+			averageRepDISC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["DISC"]
 
 
-		# plt.subplot(numPlots, 1 , 2)
-		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllCFreq, type0AllCFreq)], "g-")
-		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1DiscFreq, type0DiscFreq)], "y-")
-		# plt.plot([(a + b) / 2.0 for a,b in itr.izip(type1AllDFreq, type0AllDFreq)], "r-")
-		# plt.plot("Whole Population Strategy Frequencies")
+
+		for i, strat in enumerate(strats):
+			plt.subplot(numPlotsCol, numPlotsRow, 4 + i)
+			plt.title("Reputations of Strategies as Viewed by " + strat)
+
+			ALLCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLC"] for j in range(NUMGENERATIONS)]
+			ALLDHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLD"] for j in range(NUMGENERATIONS)]
+			DISCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["DISC"] for j in range(NUMGENERATIONS)]
+
+			plt.plot(ALLCHist, "g-")
+			plt.plot(DISCHist, "y-")
+			plt.plot(ALLDHist, "r-")
+
+			plt.plot(averageRepALLC, color = "lightgreen", linestyle = "dashed")
+			plt.plot(averageRepDISC, color = "palegoldenrod", linestyle = "dashed")
+			plt.plot(averageRepALLD, color = "lightcoral", linestyle = "dashed")
+
+
+
 
 
 		plt.show()
@@ -274,6 +364,9 @@ statistics = populationStatistics()
 # -------------------- Simulation Helper Function Declarations -----------------
 
 def updateReputations(pop, reputationUpdates, generation):
+	global population
+
+
 	for i in range(len(pop)):
 
 		for j in range(len(reputationUpdates)):
@@ -350,6 +443,12 @@ for i in range(NUMGENERATIONS):
 			reputationUpdates[judgeNumber][agent.ID] = newrep
 
 
+	#calling here so as to not confuse the population that resulted in this outcome 
+	#with the updated population
+
+	statistics.generateStatistics(population, i)
+
+
 	population = updateReputations(population, reputationUpdates, i)
 	if PROGRESSVERBOSE:
 		print("--- updated reputations for generation: " + str(i))
@@ -357,9 +456,7 @@ for i in range(NUMGENERATIONS):
 	#now for strategy updating via social contagion
 
 	population = imitationUpdate(population, roundPayoffs)
-
-	statistics.generateProportionStatistics(population, i)
-
+	
 	if PROGRESSVERBOSE:
 		print("**Completed Generation: " + str(i))
 
