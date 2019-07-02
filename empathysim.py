@@ -369,16 +369,19 @@ statistics = populationStatistics()
 def updateReputations(pop, reputationUpdates, generation):
 	global population
 
-
+	numNones = 0
 	for i in range(len(pop)):
 
 		for j in range(len(reputationUpdates)):
 			if reputationUpdates[i][j] is None:
 				reputationUpdates[i][j] = pop[i].reputations[j]
+				numNones += 1
 
 
 		pop[i].reputations = reputationUpdates[i]
 
+	if DEBUG:
+		print("--- numNones: " + str(numNones))
 	return pop
 
 
@@ -389,9 +392,10 @@ for i in range(NUMGENERATIONS):
 
 	reputationUpdates = [[None for x in range(NUMAGENTS)] for y in range(NUMAGENTS)]
 
-	np.random.shuffle(population)
+	# np.random.shuffle(population)
 
 	for j, agent in enumerate(population):
+		judgers = np.random.randint(NUMAGENTS, size= (NUMAGENTS - j, 2))
 
 		for k, adversary in enumerate(population[j:]):
 
@@ -429,24 +433,35 @@ for i in range(NUMGENERATIONS):
 
 			#judgement by judger
 
-			judgeNumber = judgeCycles[len(population) + (j - 1) - (k + 1)] 
-			judge = population[judgeNumber]
+			judgeNumber1 = int(judgers[k,0])
+			judgeNumber2 = int(judgers[k,1])
 
-			newrep = None
+			judge1 = population[judgeNumber1]
+			judge2 = population[judgeNumber2]
 
-			if np.random.random() < judge.empathy[agent.type]:
-				newrep = int(NORM[agentAction, adversaryRep])
+			newrepJudge1Agent = None
+			newrepJudge2Adversary = None
 
-				if DEBUG:
-					print("------ Empathetic Judgement occured")
+			if np.random.random() < judge1.empathy[agent.type]:
+				newrepJudge1Agent = int(NORM[agentAction, adversaryRep])
 
+				# if DEBUG:
+				# 	print("------ Empathetic Judgement occured")
 			else:
-				if DEBUG:
-					print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
-					print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
-				newrep = int(NORM[agentAction, judge.reputations[adversary.ID]])
+				# if DEBUG:
+				# 	print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
+				# 	print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
+				newrepJudge1Agent = int(NORM[agentAction, judge1.reputations[adversary.ID]])
 
-			reputationUpdates[judgeNumber][agent.ID] = newrep
+
+			if np.random.random() < judge2.empathy[adversary.type]:
+				newrepJudge2Adversary = int(NORM[adversaryAction, agentRep])
+			else:
+				newrepJudge2Adversary = int(NORM[adversaryAction, judge2.reputations[agent.ID]])
+
+
+			reputationUpdates[judgeNumber1][agent.ID] = newrepJudge1Agent
+			reputationUpdates[judgeNumber2][adversary.ID] = newrepJudge2Adversary
 
 
 	#calling here so as to not confuse the population that resulted in this outcome 
