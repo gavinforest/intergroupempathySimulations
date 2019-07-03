@@ -3,16 +3,19 @@ import numpy as np
 import matplotlib.pyplot as plt
 import json
 import itertools as itr
+from multiprocessing import Pool
 
 DEBUG = False
-PROGRESSVERBOSE = True
+PROGRESSVERBOSE = False
 
 
 # ----------------  Simulation parameters  ----------------
 
 NUMAGENTS = 100
 
-NUMGENERATIONS = 1500
+NUMGENERATIONS = 200
+
+NUMPOPULATIONS = 1
 
 NORM = np.array([[1, 0], [1, 1]])
 
@@ -91,7 +94,7 @@ class Agent:
 
 		self.reputations = np.random.randint(2, size = NUMAGENTS)
 
-def imitationUpdate(population, payoffs):
+def imitationUpdate(population, payoffs, generation):
 	individuals = np.random.choice(range(NUMAGENTS), size = 2)
 
 	ind1 = individuals[0]
@@ -101,7 +104,7 @@ def imitationUpdate(population, payoffs):
 
 	if np.random.random() < pCopy:
 		if PROGRESSVERBOSE:
-			print(" --- social imitation occuring in generation: " + str(i))
+			print(" --- social imitation occuring in generation: " + str(generation))
 
 
 		population[ind1].strategy = population[ind2].strategy
@@ -353,21 +356,9 @@ class populationStatistics:
 		plt.show()
 	
 
-
-# ------------------- Simulation Initialization ----------------
-
-game = DonationGame(gameBenefit, gameCost)
-
-population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 3]) for i in range(NUMAGENTS)]
-
-judgeCycles = list(range(len(population))) * 2
-
-statistics = populationStatistics()
-
 # -------------------- Simulation Helper Function Declarations -----------------
 
 def updateReputations(pop, reputationUpdates, generation):
-	global population
 
 	numNones = 0
 	for i in range(len(pop)):
@@ -385,108 +376,126 @@ def updateReputations(pop, reputationUpdates, generation):
 	return pop
 
 
-# ------------------- Generation Loop ------------------------
+# ------------------- Generation Loop Function  ------------------------
 
-for i in range(NUMGENERATIONS):
-	roundPayoffs = np.zeros(NUMAGENTS)
+def evolve(simulationInstanceID):
 
-	reputationUpdates = [[None for x in range(NUMAGENTS)] for y in range(NUMAGENTS)]
+	#------- simulation initialization ---------
+	game = DonationGame(gameBenefit, gameCost)
 
-	# np.random.shuffle(population)
+	population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 3]) for i in range(NUMAGENTS)]
 
-	for j, agent in enumerate(population):
-		judgers = np.random.randint(NUMAGENTS, size= (NUMAGENTS - j, 2))
+	statistics = populationStatistics()
 
-		for k, adversary in enumerate(population[j:]):
+	#-------- generation loop---------
 
-			agentRep = adversary.reputations[agent.ID]
-			adversaryRep = agent.reputations[adversary.ID]
+	for i in range(NUMGENERATIONS):
+		roundPayoffs = np.zeros(NUMAGENTS)
 
-			if DEBUG:
-				print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
-				if type(agentRep) != int:
-					print("------------ adversary reputation list: " + str(adversary.reputations))
-					print("------------ agentRep type: " + str(type(agentRep)))
+		reputationUpdates = [[None for x in range(NUMAGENTS)] for y in range(NUMAGENTS)]
 
-			agentAction = agent.strategy[adversaryRep]
-			adversaryAction = adversary.strategy[agentRep]
+		# np.random.shuffle(population)
 
-			if DEBUG:
-				print(" ------ agent strategy, adversary strategy: " + str(agent.strategy) + " , " + str(adversary.strategy))
+		for j, agent in enumerate(population):
+			judgers = np.random.randint(NUMAGENTS, size= (NUMAGENTS - j, 2))
 
-			if DEBUG:
-				print(" ------ agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
-		
-			agentAction = game.moveError(agentAction)
-			adversaryAction = game.moveError(adversaryAction)
+			for k, adversary in enumerate(population[j:]):
 
-			if DEBUG:
-				print(" ------ errored agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
+				agentRep = adversary.reputations[agent.ID]
+				adversaryRep = agent.reputations[adversary.ID]
+
+				if DEBUG:
+					print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
+					if type(agentRep) != int:
+						print("------------ adversary reputation list: " + str(adversary.reputations))
+						print("------------ agentRep type: " + str(type(agentRep)))
+
+				agentAction = agent.strategy[adversaryRep]
+				adversaryAction = adversary.strategy[agentRep]
+
+				if DEBUG:
+					print(" ------ agent strategy, adversary strategy: " + str(agent.strategy) + " , " + str(adversary.strategy))
+
+				if DEBUG:
+					print(" ------ agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 			
-			agentPayoff, adversaryPayoff = game.play(agentAction, adversaryAction)
+				agentAction = game.moveError(agentAction)
+				adversaryAction = game.moveError(adversaryAction)
 
-			if DEBUG:
-				print(" ------ Agent Payoff: " + str(agentPayoff))
+				if DEBUG:
+					print(" ------ errored agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
+				
+				agentPayoff, adversaryPayoff = game.play(agentAction, adversaryAction)
 
-			roundPayoffs[j] += agentPayoff
-			roundPayoffs[k] += adversaryPayoff
+				if DEBUG:
+					print(" ------ Agent Payoff: " + str(agentPayoff))
 
-			#judgement by judger
+				roundPayoffs[j] += agentPayoff
+				roundPayoffs[k] += adversaryPayoff
 
-			judgeNumber1 = int(judgers[k,0])
-			judgeNumber2 = int(judgers[k,1])
+				#judgement by judger
 
-			judge1 = population[judgeNumber1]
-			judge2 = population[judgeNumber2]
+				judgeNumber1 = int(judgers[k,0])
+				judgeNumber2 = int(judgers[k,1])
 
-			newrepJudge1Agent = None
-			newrepJudge2Adversary = None
+				judge1 = population[judgeNumber1]
+				judge2 = population[judgeNumber2]
 
-			if np.random.random() < judge1.empathy[agent.type]:
-				newrepJudge1Agent = int(NORM[agentAction, adversaryRep])
+				newrepJudge1Agent = None
+				newrepJudge2Adversary = None
 
-				# if DEBUG:
-				# 	print("------ Empathetic Judgement occured")
-			else:
-				# if DEBUG:
-				# 	print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
-				# 	print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
-				newrepJudge1Agent = int(NORM[agentAction, judge1.reputations[adversary.ID]])
+				if np.random.random() < judge1.empathy[agent.type]:
+					newrepJudge1Agent = int(NORM[agentAction, adversaryRep])
 
-
-			if np.random.random() < judge2.empathy[adversary.type]:
-				newrepJudge2Adversary = int(NORM[adversaryAction, agentRep])
-			else:
-				newrepJudge2Adversary = int(NORM[adversaryAction, judge2.reputations[agent.ID]])
-
-
-			reputationUpdates[judgeNumber1][agent.ID] = newrepJudge1Agent
-			reputationUpdates[judgeNumber2][adversary.ID] = newrepJudge2Adversary
+					# if DEBUG:
+					# 	print("------ Empathetic Judgement occured")
+				else:
+					# if DEBUG:
+					# 	print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
+					# 	print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
+					newrepJudge1Agent = int(NORM[agentAction, judge1.reputations[adversary.ID]])
 
 
-	#calling here so as to not confuse the population that resulted in this outcome 
-	#with the updated population
-
-	statistics.generateStatistics(population, i)
-
-
-	population = updateReputations(population, reputationUpdates, i)
-	if PROGRESSVERBOSE:
-		print("--- updated reputations for generation: " + str(i))
-
-	#now for strategy updating via social contagion
-
-	population = imitationUpdate(population, roundPayoffs)
-	
-	if PROGRESSVERBOSE:
-		print("**Completed Generation: " + str(i))
+				if np.random.random() < judge2.empathy[adversary.type]:
+					newrepJudge2Adversary = int(NORM[adversaryAction, agentRep])
+				else:
+					newrepJudge2Adversary = int(NORM[adversaryAction, judge2.reputations[agent.ID]])
 
 
-# ------------------- Simulation Statistics Analysis ---------------------
+				reputationUpdates[judgeNumber1][agent.ID] = newrepJudge1Agent
+				reputationUpdates[judgeNumber2][adversary.ID] = newrepJudge2Adversary
 
-statistics.plotComprehensive()
+
+		#calling here so as to not confuse the population that resulted in this outcome 
+		#with the updated population
+
+		statistics.generateStatistics(population, i)
 
 
+		population = updateReputations(population, reputationUpdates, i)
+		if PROGRESSVERBOSE:
+			print("--- updated reputations for generation: " + str(i))
+
+		#now for strategy updating via social contagion
+
+		population = imitationUpdate(population, roundPayoffs, i)
+		
+		if PROGRESSVERBOSE:
+			print("**Completed Generation: " + str(i))
+
+	print("**Completed Simulation: " + str(simulationInstanceID))
+	return statistics
+
+
+# ------------------- Simulation Farming ---------------------
+
+with Pool(NUMPOPULATIONS) as p:
+	statsList = p.map(evolve, range(4))
+
+print("Simulated " + str(len(statsList)) + " populations!")
+
+#-------------------- Simulation Statistics Analysis -----------------
+statsList[0].plotComprehensive()
 
 
 
