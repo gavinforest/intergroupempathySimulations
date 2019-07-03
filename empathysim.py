@@ -35,7 +35,7 @@ u01 = 0.00
 u10 = 0.00
 
 #cooperation benefit
-gameBenefit = 2.5
+gameBenefit = 5
 
 #cooperation cost
 gameCost = 1
