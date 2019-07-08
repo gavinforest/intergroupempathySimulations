@@ -4,20 +4,22 @@ import matplotlib.pyplot as plt
 import json
 import itertools as itr
 from multiprocessing import Pool
+import time
+import random
 
 DEBUG = False
-PROGRESSVERBOSE = False
+PROGRESSVERBOSE = True
 
 
 # ----------------  Simulation parameters  ----------------
 
 NUMAGENTS = 100
 
-NUMGENERATIONS = 200
+NUMGENERATIONS = 1500
 
 NUMPOPULATIONS = 1
 
-NORM = np.array([[1, 0], [1, 1]])
+NORM = np.array([[1, 0], [0, 1]], dtype="int64")
 
 #observation error
 Eobs = 0.0
@@ -54,9 +56,10 @@ class DonationGame:
 		#Format is for matrix being the row players payoff,
 		# where 0 stands for Defect, 1 for Cooperate
 		self.payoffMatrix = np.array([[0.0, benefit],[-cost, benefit - cost]])
+		self.oneshot = [(0.0,0.0), (-cost, benefit - cost)]
 
 	def moveError(self, strat):
-		if np.random.random() < Ecoop and strat:
+		if random.random() < Ecoop and strat:
 			return 0
 		else:
 			return strat
@@ -82,6 +85,15 @@ def stratToString(strategy):
 			print("Got strange strategy: " + str(strategy))
 		return "ERROR"
 
+def stratNumber(strategy):
+	string = stratToString(strategy)
+	if string == "ALLC":
+		return 0
+	elif string == "DISC":
+		return 1
+	else:
+		return 2
+
 class Agent:
 	def __init__(self, AgentType, ID, empathy0 = 0.0, empathy1 = 0.0, strat = None):
 		self.type = AgentType
@@ -92,7 +104,10 @@ class Agent:
 		else:
 			self.strategy = ALLC
 
-		self.reputations = np.random.randint(2, size = NUMAGENTS)
+		self.stratString = stratToString(self.strategy)
+		self.stratNumber = stratNumber(self.strategy)
+
+		# self.reputations = np.random.randint(2, size = NUMAGENTS)
 
 def imitationUpdate(population, payoffs, generation):
 	individuals = np.random.choice(range(NUMAGENTS), size = 2)
@@ -102,7 +117,7 @@ def imitationUpdate(population, payoffs, generation):
 
 	pCopy = 1.0 / ( 1 + np.exp( - w * (payoffs[ind2] - payoffs[ind1])))
 
-	if np.random.random() < pCopy:
+	if random.random() < pCopy:
 		if PROGRESSVERBOSE:
 			print(" --- social imitation occuring in generation: " + str(generation))
 
@@ -120,7 +135,7 @@ def imitationUpdate(population, payoffs, generation):
 
 
 	for j in range(len(population)):
-		if np.random.random() < ustrat:
+		if random.random() < ustrat:
 			if PROGRESSVERBOSE:
 				print("------ random mutation strategy drift occured to individual: " + str(j))
 			np.random.shuffle(STRATEGIES)
@@ -128,10 +143,10 @@ def imitationUpdate(population, payoffs, generation):
 			population[j].strategy = newstrat
 
 		if population[j].type:
-			if np.random.random() < u10:
+			if random.random() < u10:
 				population[j].type = 0
 		else:
-			if np.random.random() < u01:
+			if random.random() < u01:
 				population[j].type = 1
 
 
@@ -144,7 +159,7 @@ class populationStatistics:
 		self.statisticsList = [ None for k in range(NUMGENERATIONS)]
 		self.populationHistory = [None for k in range(NUMGENERATIONS)]
 
-	def generateStatistics(self, population, generation):
+	def generateStatistics(self, population, reputations, generation, cooperationRateD):
 
 		if DEBUG:
 			print("--- generating statistics for generation: " + str(generation))
@@ -220,12 +235,14 @@ class populationStatistics:
 			
 			for agent in population:
 				for i, strat in enumerate(stratStringsByID):
-					repStats["viewsFromTo"][stratType][strat].append(agent.reputations[i])
+					repStats["viewsFromTo"][stratType][strat].append(reputations[agent.ID, i])
 
 			for strat in strats:
 				repStats["viewsFromTo"][stratType][strat] = np.average(repStats["viewsFromTo"][stratType][strat])
 
 		self.statisticsList[generation]["reputations"] = repStats
+
+		self.statisticsList[generation]["cooperationRate"] = cooperationRateD
 			
 
 
@@ -358,22 +375,22 @@ class populationStatistics:
 
 # -------------------- Simulation Helper Function Declarations -----------------
 
-def updateReputations(pop, reputationUpdates, generation):
+# def updateReputations(pop, reputationUpdates, generation):
 
-	numNones = 0
-	for i in range(len(pop)):
+# 	numNones = 0
+# 	for i in range(len(pop)):
 
-		for j in range(len(reputationUpdates)):
-			if reputationUpdates[i][j] is None:
-				reputationUpdates[i][j] = pop[i].reputations[j]
-				numNones += 1
+# 		for j in range(len(reputationUpdates)):
+# 			if reputationUpdates[i][j] is None:
+# 				reputationUpdates[i][j] = pop[i].reputations[j]
+# 				numNones += 1
 
 
-		pop[i].reputations = reputationUpdates[i]
+# 		pop[i].reputations = reputationUpdates[i]
 
-	if DEBUG:
-		print("--- numNones: " + str(numNones))
-	return pop
+# 	if DEBUG:
+# 		print("--- numNones: " + str(numNones))
+# 	return pop
 
 
 # ------------------- Generation Loop Function  ------------------------
@@ -383,7 +400,9 @@ def evolve(simulationInstanceID):
 	#------- simulation initialization ---------
 	game = DonationGame(gameBenefit, gameCost)
 
-	population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 3]) for i in range(NUMAGENTS)]
+	population = [Agent(int(np.floor(i / 50.0)), i, strat = STRATEGIES[i % 2 + 1]) for i in range(NUMAGENTS)]
+
+	reputations = np.random.randint(2, size= (NUMAGENTS, NUMAGENTS))
 
 	statistics = populationStatistics()
 
@@ -392,17 +411,24 @@ def evolve(simulationInstanceID):
 	for i in range(NUMGENERATIONS):
 		roundPayoffs = np.zeros(NUMAGENTS)
 
-		reputationUpdates = [[None for x in range(NUMAGENTS)] for y in range(NUMAGENTS)]
+		reputationUpdates = np.zeros((NUMAGENTS, NUMAGENTS))
+
+		cooperationRate = [0.0 for j in range(4)]
+		cooperationDenom = [0 for j in range(4)]
 
 		# np.random.shuffle(population)
+		startTime = time.time()
 
-		for j, agent in enumerate(population):
-			judgers = np.random.randint(NUMAGENTS, size= (NUMAGENTS - j, 2))
+		for j in range(NUMAGENTS): #judge
 
-			for k, adversary in enumerate(population[j:]):
+			for k in range(NUMAGENTS): #agent
 
-				agentRep = adversary.reputations[agent.ID]
-				adversaryRep = agent.reputations[adversary.ID]
+
+				# inStart = time.time()
+
+				adversaryID = (k + random.randint(1, NUMAGENTS - 1)) % NUMAGENTS
+
+				adversaryRep = reputations[k, adversaryID]
 
 				if DEBUG:
 					print(" ------ agentRep, adversaryRep: " + str(agentRep) + " , " + str(adversaryRep))
@@ -410,8 +436,7 @@ def evolve(simulationInstanceID):
 						print("------------ adversary reputation list: " + str(adversary.reputations))
 						print("------------ agentRep type: " + str(type(agentRep)))
 
-				agentAction = agent.strategy[adversaryRep]
-				adversaryAction = adversary.strategy[agentRep]
+				agentAction = population[k].strategy[adversaryRep]
 
 				if DEBUG:
 					print(" ------ agent strategy, adversary strategy: " + str(agent.strategy) + " , " + str(adversary.strategy))
@@ -420,32 +445,32 @@ def evolve(simulationInstanceID):
 					print(" ------ agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 			
 				agentAction = game.moveError(agentAction)
-				adversaryAction = game.moveError(adversaryAction)
+
 
 				if DEBUG:
 					print(" ------ errored agent Action, adversary action:  " + str(agentAction) + " , " + str(adversaryAction))
 				
-				agentPayoff, adversaryPayoff = game.play(agentAction, adversaryAction)
+
+				agentPayoff, adversaryPayoff = game.oneshot[agentAction]
+
 
 				if DEBUG:
 					print(" ------ Agent Payoff: " + str(agentPayoff))
 
-				roundPayoffs[j] += agentPayoff
-				roundPayoffs[k] += adversaryPayoff
+				roundPayoffs[j] = roundPayoffs[j] + agentPayoff
+				roundPayoffs[k] = roundPayoffs[k] + adversaryPayoff
+
+				# if PROGRESSVERBOSE:
+				# 	print("------ got past payoffs in: " + str(time.time() - inStart))
+
+				# inStart = time.time()
+
 
 				#judgement by judger
+				oldrep = reputations[j,k]
 
-				judgeNumber1 = int(judgers[k,0])
-				judgeNumber2 = int(judgers[k,1])
-
-				judge1 = population[judgeNumber1]
-				judge2 = population[judgeNumber2]
-
-				newrepJudge1Agent = None
-				newrepJudge2Adversary = None
-
-				if np.random.random() < judge1.empathy[agent.type]:
-					newrepJudge1Agent = int(NORM[agentAction, adversaryRep])
+				if random.random() < population[j].empathy[population[k].type]:
+					newrep = NORM[agentAction][adversaryRep]
 
 					# if DEBUG:
 					# 	print("------ Empathetic Judgement occured")
@@ -453,32 +478,54 @@ def evolve(simulationInstanceID):
 					# if DEBUG:
 					# 	print("------ trying to set newrep to " + str(NORM[agentAction, judge.reputations[k]]))
 					# 	print("------ judge's view of adversary reputation is: " + str(judge.reputations[adversary.ID]))
-					newrepJudge1Agent = int(NORM[agentAction, judge1.reputations[adversary.ID]])
+					newrep = NORM[agentAction][reputations[j,adversaryID]]
 
 
-				if np.random.random() < judge2.empathy[adversary.type]:
-					newrepJudge2Adversary = int(NORM[adversaryAction, agentRep])
-				else:
-					newrepJudge2Adversary = int(NORM[adversaryAction, judge2.reputations[agent.ID]])
+				reputationUpdates[j, k] = newrep - oldrep
+				
+				# if PROGRESSVERBOSE:
+				# 	print("------ got past payoffs and rep in: " + str(time.time() - inStart))
 
+				# inStart = time.time()
 
-				reputationUpdates[judgeNumber1][agent.ID] = newrepJudge1Agent
-				reputationUpdates[judgeNumber2][adversary.ID] = newrepJudge2Adversary
+				cooperationRate[population[k].stratNumber] += agentAction
+				cooperationDenom[population[k].stratNumber] += 1
+				cooperationRate[3] += agentAction 
+				cooperationDenom[3] += 1
+
+				# if PROGRESSVERBOSE:
+				# 	print("------ finished everything else in: " + str(time.time() - inStart))
 
 
 		#calling here so as to not confuse the population that resulted in this outcome 
 		#with the updated population
+		if PROGRESSVERBOSE:
+			print("--- simulated interactions in: " + str(time.time() - startTime))
 
-		statistics.generateStatistics(population, i)
+		cooperationRateDict = {}
+		for j, strat in enumerate(["ALLC", "ALLD", "DISC", "TOTAL"]):
+			if cooperationDenom[j] > 0.0:
+				cooperationRateDict[strat] = cooperationRate[j] / cooperationDenom[j]
 
+		startTime = time.time()
+		statistics.generateStatistics(population, reputations, i, cooperationRateDict)
 
-		population = updateReputations(population, reputationUpdates, i)
+		if PROGRESSVERBOSE:
+			print("--- generated statistics in: " + str(time.time() - startTime))
+
+		startTime = time.time()
+		reputations = reputations + reputationUpdates
+		# population = updateReputations(population, reputationUpdates, i)
 		if PROGRESSVERBOSE:
 			print("--- updated reputations for generation: " + str(i))
+			print("--- updating reputations took: " + str(time.time() - startTime))
 
 		#now for strategy updating via social contagion
 
+		startTime = time.time()
 		population = imitationUpdate(population, roundPayoffs, i)
+		if PROGRESSVERBOSE:
+			print("--- imitation update took: " + str(time.time() - startTime))
 		
 		if PROGRESSVERBOSE:
 			print("**Completed Generation: " + str(i))
@@ -486,16 +533,144 @@ def evolve(simulationInstanceID):
 	print("**Completed Simulation: " + str(simulationInstanceID))
 	return statistics
 
+#-------------------- Multiple Simulation Analysis Functions -----------------
+def plotMultiplePopulations(statLists):
+	type0coopFreqs = []
+	type1coopFreqs = []
+
+	type0AllCFreq = []
+	type0DiscFreq = []
+	type0AllDFreq = []
+
+	type1AllCFreq = []
+	type1DiscFreq = []
+	type1AllDFreq = []
+
+	for entry in self.statisticsList:
+
+		type0AllCFreq.append(1.0 * entry["proportions"]["type0"]["ALLC"] / entry["proportions"]["type0"]["total"])
+		type0DiscFreq.append(1.0 * entry["proportions"]["type0"]["DISC"] / entry["proportions"]["type0"]["total"])
+		type0AllDFreq.append(1.0 * entry["proportions"]["type0"]["ALLD"] / entry["proportions"]["type0"]["total"])
+
+		type0coopFreqs.append(type0AllCFreq[-1] + 0.5 * type0DiscFreq[-1])
+
+		
+
+		type1AllCFreq.append(1.0 * entry["proportions"]["type1"]["ALLC"] / entry["proportions"]["type1"]["total"])
+		type1DiscFreq.append(1.0 * entry["proportions"]["type1"]["DISC"] / entry["proportions"]["type1"]["total"])
+		type1AllDFreq.append(1.0 * entry["proportions"]["type1"]["ALLD"] / entry["proportions"]["type1"]["total"])
+
+		type1coopFreqs.append(type1AllCFreq[-1] + 0.5 * type1DiscFreq[-1])
+
+	totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
+
+	plt.figure(1)
+	numPlotsCol = 3
+	numPlotsRow = 1
+
+	plt.subplot(numPlotsCol,numPlotsRow,1)
+
+	plt.plot(type0coopFreqs, 'b-')
+	plt.plot(type1coopFreqs, "g-")
+	plt.plot([(a + b) / 2.0 for a,b in zip(type1coopFreqs, type0coopFreqs)], color = "grey", linestyle= "dashed")
+	plt.title("Cooperation Rate by Type")
+
+
+	
+	AllCFreq = [(a + b) / 2.0 for a,b in zip(type1AllCFreq, type0AllCFreq)]
+	DiscFreq = [(a + b) / 2.0 for a,b in zip(type1DiscFreq, type0DiscFreq)]
+	AllDFreq = [(a + b) / 2.0 for a,b in zip(type1AllDFreq, type0AllDFreq)]
+
+
+	plt.subplot(numPlotsCol,numPlotsRow, 2)
+	plt.plot(type0AllCFreq, "g-")
+	plt.plot(type0DiscFreq, "y-")
+	plt.plot(type0AllDFreq, "r-")
+
+	plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
+	plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
+	plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
+
+	plt.title("Type A Strategy Frequencies")
+
+
+
+	plt.subplot(numPlotsCol,numPlotsRow, 3)
+	plt.plot(type1AllCFreq, "g-")
+	plt.plot(type1DiscFreq, "y-")
+	plt.plot(type1AllDFreq, "r-")
+
+	plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
+	plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
+	plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
+
+	plt.title("Type B Strategy Frequencies")
+
+	plt.figure(2)
+
+
+	strats = ["ALLC", "DISC", "ALLD"]
+
+	averageRepALLC = [0 for j in range(NUMGENERATIONS)]
+	averageRepALLD = [0 for j in range(NUMGENERATIONS)]		
+	averageRepDISC = [0 for j in range(NUMGENERATIONS)]
+
+	for j in range(NUMGENERATIONS):
+		averageRepALLC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLC"]
+		averageRepALLC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLC"]
+		averageRepALLC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLC"]
+
+		averageRepALLD[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLD"]
+		averageRepALLD[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLD"]
+		averageRepALLD[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLD"]
+
+		averageRepDISC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["DISC"]
+		averageRepDISC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["DISC"]
+		averageRepDISC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["DISC"]
+
+
+
+	for i, strat in enumerate(strats):
+		plt.subplot(numPlotsCol, numPlotsRow, i + 1)
+		plt.title("Reputations of Strategies as Viewed by " + strat)
+
+		ALLCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLC"] for j in range(NUMGENERATIONS)]
+		ALLDHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLD"] for j in range(NUMGENERATIONS)]
+		DISCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["DISC"] for j in range(NUMGENERATIONS)]
+
+		plt.plot(ALLCHist, "g-")
+		plt.plot(DISCHist, "y-")
+		plt.plot(ALLDHist, "r-")
+
+		plt.plot(averageRepALLC, color = "lightgreen", linestyle = "dashed")
+		plt.plot(averageRepDISC, color = "palegoldenrod", linestyle = "dashed")
+		plt.plot(averageRepALLD, color = "lightcoral", linestyle = "dashed")
+
+
+
+
+
+	plt.show()
+	
+
+
 
 # ------------------- Simulation Farming ---------------------
 
-with Pool(NUMPOPULATIONS) as p:
-	statsList = p.map(evolve, range(4))
+# with Pool(4) as p:
+# 	statsList = p.map(evolve, range(NUMPOPULATIONS))
 
-print("Simulated " + str(len(statsList)) + " populations!")
+# print("Simulated " + str(len(statsList)) + " populations!")
 
-#-------------------- Simulation Statistics Analysis -----------------
-statsList[0].plotComprehensive()
+#-------------------- Simulation Farm Statistics Analysis -----------------
+
+# statsList[0].plotComprehensive()
+
+#------------------- Individual Simulation -------------------
+
+stats = evolve(0)
+stats.plotComprehensive()
+
 
 
 
