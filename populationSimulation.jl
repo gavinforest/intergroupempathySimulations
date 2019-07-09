@@ -1,8 +1,10 @@
 import LinearAlgebra
+import Distributed
 const LA = LinearAlgebra
 
 DEBUG = true
 PROGRESSVERBOSE = true
+TEST = false
 
 const ALLC = [1,1]
 const DISC = [0,1]
@@ -39,7 +41,7 @@ end
 function moveError(move, ec)
 	if move == 0
 		return 0
-	elseif ec < rand()
+	elseif rand() < ec
 		return 0
 	else 
 		return 1
@@ -52,12 +54,12 @@ function generateStatistics!(statList, population, reputations, generation, coop
 	repStatsDenoms = LA.zeros(Float64, 3,3)
 
 	for j in 1:length(population)
-		typeProportions[(population[j].type + 1), population[j].stratNumber] = 1.0 + typeProportions[(population[j].type + 1), population[j].stratNumber]
-		typeProportions[(population[j].type + 1), 4] = 1.0 + typeProportions[(population[j].type + 1), 4]
+		typeProportions[(population[j].type + 1), population[j].stratNumber] += 1.0 
+		typeProportions[(population[j].type + 1), 4] += 1.0 
 
 		for k in 1:length(population)
-			repStats[population[j].stratNumber, population[k].stratNumber] = reputations[j,k] * 1.0 + repStats[population[j].stratNumber, population[k].stratNumber]
-			repStatsDenoms[population[j].stratNumber, population[k].stratNumber] = 1.0 + repStatsDenoms[population[j].stratNumber, population[k].stratNumber]
+			repStats[population[j].stratNumber, population[k].stratNumber] += reputations[j,k] * 1.0 
+			repStatsDenoms[population[j].stratNumber, population[k].stratNumber] += 1.0 
 		end
 
 	end
@@ -98,9 +100,9 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	gameCost = environmentParameters["gameCost"]
 	gameCost:: Float64
 
-	oneShotMatrix = [(0.0, gameBenefit),(-gameCost, gameBenefit - gameCost)]
+	oneShotMatrix = [(0.0, 0.0),(-gameCost, gameBenefit - gameCost)]
 
-	population = [makeAgent(i % 2, i, i % 3 + 1) for i in 1:100]
+	population = [makeAgent(i % 2, i, i % 3 + 1) for i in 1:NUMAGENTS]
 
 	reputations = LA.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
 
@@ -127,24 +129,24 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 				agentPayoff, adversaryPayoff = oneShotMatrix[agentAction + 1]
 
-				roundPayoffs[a] = roundPayoffs[a] + agentPayoff
-				roundPayoffs[adversaryID] = roundPayoffs[adversaryID] + adversaryPayoff
+				roundPayoffs[a] += agentPayoff
+				roundPayoffs[adversaryID] += adversaryPayoff
 
 
 				oldrep = reputations[j,a]
 				local newrep
 
 				if rand() < population[j].empathy[population[a].type + 1]
-					newrep = NORM[agentAction + 1, adversaryRep]
+					newrep = NORM[agentAction + 1, adversaryRep + 1]
 				else
-					newrep = NORM[agentAction+1, reputations[j,adversaryID]]
+					newrep = NORM[agentAction+1, reputations[j,adversaryID] + 1]
 				end
 
 				reputationUpdates[j,a] = newrep - oldrep
 
 				#strategy specific coop rate calculation
-				cooperationRate[population[a].stratNumber,1] = agentAction + cooperationRate[population[a].stratNumber,1]
-				cooperationRate[population[a].stratNumber,2] = 1 + cooperationRate[population[a].stratNumber,2]
+				cooperationRate[population[a].stratNumber,1] += agentAction
+				cooperationRate[population[a].stratNumber,2] += 1 
 
 				#total coop rate calculation
 				cooperationRate[4,1] = agentAction + cooperationRate[4,1]
@@ -168,9 +170,11 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		pCopy = 1.0 / (1.0 + exp( -w * (roundPayoffs[ind2] - roundPayoffs[ind1])))
 		if pCopy < rand()
 			population[ind1].strategy = population[ind2].strategy
+			population[ind1].stratString = population[ind2].stratString
+			population[ind1].stratNumber = population[ind2].stratNumber
 		end
 
-		if PROGRESSVERBOSE
+		if PROGRESSVERBOSE && i%50==0
 			println("--- simulated generation")
 		end
 
@@ -192,7 +196,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		end
 		endTime = time_ns()
 		elapsedSecs = (endTime - startTime) / 1.0e9
-		if PROGRESSVERBOSE
+		if PROGRESSVERBOSE && i%50==0
 			println("**Completed modeling generation: $i in $elapsedSecs seconds")
 		end
 
@@ -202,21 +206,29 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	return statistics
 end
 
-testPopParams = Dict("numAgents" => 100, "numGenerations" => 200)
+# function evolveDistributed(parameterTuples):
+# 	Distributed.pmap(evolve, parameterTuples)
 
-testEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
-				"gameBenefit" => 5.0, "gameCost" => 1.0, )
+function testEvolve()
+	testPopParams = Dict("numAgents" => 100, "numGenerations" => 150000)
 
-testNorm = LA.ones(Int,2,2)
-testNorm[1,2] = 0
+	testEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
+					"gameBenefit" => 5.0, "gameCost" => 1.0, )
 
-evolve(testPopParams, testEnvParams, testNorm)
+	testNorm = LA.ones(Int,2,2)
+	testNorm[1,2] = 0
+	testNorm[2,1] = 1
+	println("test norm: $testNorm")
 
+	if TEST
+		stats = evolve(testPopParams, testEnvParams, testNorm)
+		println(stats[end])
+	else 
+		return evolve(testPopParams, testEnvParams, testNorm)
+	end
 
+end
 
-
-
-
-
-
-
+if TEST
+	testEvolve()
+end
