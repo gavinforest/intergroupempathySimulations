@@ -6,9 +6,10 @@ import itertools as itr
 from multiprocessing import Pool
 import time
 import random
+import ctypes
 import julia
 J = julia.Julia()
-juliaSim = J.include('populationSimulation.jl')
+juliaSim = J.include('populationSimulationController.jl')
 
 
 DEBUG = False
@@ -270,7 +271,7 @@ class populationStatistics:
 
 		plt.show()
 
-def juliaOuputToStatisticsObject(output):
+def juliaOutputToStatisticsObject(output):
 	statObject = populationStatistics(len(output))
 	statObject.statisticsList = [None for i in range(len(output))]
 
@@ -438,21 +439,72 @@ defaultEnvironmentParameters = {"Ecoop" : 0.0, "Eobs" : 0.0, "ustrat" : 0.001, "
 					"gameBenefit" : 5.0, "gameCost" : 1.0}
 defaultNorm = np.array([[1, 0], [0, 1]], dtype="int64")
 
+
+def popToArray(x):
+	keys = ["numAgents", "numGenerations"]
+	return np.array([x[key] for key in keys])
+
+def envToArray(x):
+	keys = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
+	return np.array([x[key] for key in keys])
+
 def generateParameterTuples(parameterVariabilitySets):
 	#parameter variability sets are dictionaries of the form
 	#{ paramater: [values it can take]}
 	#we then try all possible combinations of each
 
-	return None
+	individualSettings = [[] for key in parameterVariabilitySets.keys()]
+	for i, key in enumerate(parameterVariabilitySets.keys()):
+		individualSettings[i] = [(key, item) for item in parameterVariabilitySets[key]]
+
+	individualSettings = tuple(individualSettings)
+	# print(individualSettings)
+	# print(*individualSettings)
+	combos = itr.product(*individualSettings)
+	# print(list(combos))
+
+	finalTuples = []
+
+	for setting in combos:
+		popParams = defaultPopulationParameters.copy()
+		envParams = defaultEnvironmentParameters.copy()
+		norm = np.copy(defaultNorm)
+
+		for key, item in setting:
+			if key in popParams:
+				popParams[key] = item
+			elif key in envParams:
+				envParams[key] = item
+			elif key == "norm":
+				norm = item
+			else:
+				print("*bad key in generateParameterTuples: " + str(key))
+
+		finalTuples.append((popToArray(popParams),envToArray(envParams), norm))
+	
+	return finalTuples
 
 def farm(parameterVariabilitySets):
 	argumentTuples = generateParameterTuples(parameterVariabilitySets)
+	statsList = J.evolveDistributed(argumentTuples)
+	statsObjs = [juliaOutputToStatisticsObject(obj) for obj in statsList]
+
+	return zip(statsObjs, argumentTuples)
 
 
+def plotFarmedFig3(zippedStatsAndSets):
+	plotLists = {}
+
+	plotParamaters = []
+	for statObj, tuples in zippedStatsAndSets:
+		datapoint =      None
 	return
 
+# print(generateParameterTuples({"numGenerations": [100,200,300], "gameBenefit": [5,6,7]}))
 
-
+paramSets = {"numGenerations": [100,200,300], "gameBenefit": [5,6,7]}
+farm(paramSets)
+# print J.nprocs()
 
 # with Pool(4) as p:
 # 	statsList = p.map(evolve, range(NUMPOPULATIONS))
@@ -470,10 +522,10 @@ def farm(parameterVariabilitySets):
 
 #------------------- Individual Simulation -------------------
 
-stats = juliaOuputToStatisticsObject(J.testEvolve())
-print(stats.statisticsList[-1])
+# stats = juliaOutputToStatisticsObject(J.testEvolve())
+# print(stats.statisticsList[-1])
 
-stats.plotComprehensive()
+# stats.plotComprehensive()
 
 
 

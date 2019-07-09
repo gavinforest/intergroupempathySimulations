@@ -1,6 +1,5 @@
 import LinearAlgebra
-import Distributed
-const LA = LinearAlgebra
+
 
 DEBUG = true
 PROGRESSVERBOSE = true
@@ -28,6 +27,7 @@ function stratToString(strat::AbstractArray{Int, 1})
 	return STRATNAMES[stratInd]
 end
 
+
 function stratToNumber(strat::AbstractArray{Int,1})
 	return sum(strat) + 1
 end
@@ -49,9 +49,9 @@ function moveError(move, ec)
 end
 
 function generateStatistics!(statList, population, reputations, generation, cooperationRateArray)
-	typeProportions = LA.zeros(Float64, 2, 4)
-	repStats = LA.zeros(Float64, 3,3)
-	repStatsDenoms = LA.zeros(Float64, 3,3)
+	typeProportions = LinearAlgebra.zeros(Float64, 2, 4)
+	repStats = LinearAlgebra.zeros(Float64, 3,3)
+	repStatsDenoms = LinearAlgebra.zeros(Float64, 3,3)
 
 	for j in 1:length(population)
 		typeProportions[(population[j].type + 1), population[j].stratNumber] += 1.0 
@@ -73,7 +73,6 @@ function generateStatistics!(statList, population, reputations, generation, coop
 	return statList
 
 end
-
 
 
 function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2})::Array{Dict{String, Array{Float64, 2}}, 1}
@@ -104,17 +103,17 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 	population = [makeAgent(i % 2, i, i % 3 + 1) for i in 1:NUMAGENTS]
 
-	reputations = LA.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
+	reputations = LinearAlgebra.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
 
 	statistics = [ Dict{String, Array{Float64, 2}}() for i in 1:NUMGENERATIONS]
 
 
 	for i in 1:NUMGENERATIONS
 		startTime = time_ns()
-		roundPayoffs = LA.zeros(Float64, NUMAGENTS)
-		reputationUpdates = LA.zeros(Int, NUMAGENTS, NUMAGENTS)
+		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
+		reputationUpdates = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
-		cooperationRate = LA.zeros(Float64, 4, 2)
+		cooperationRate = LinearAlgebra.zeros(Float64, 4, 2)
 
 		for j in 1:NUMAGENTS
 
@@ -206,16 +205,13 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	return statistics
 end
 
-# function evolveDistributed(parameterTuples):
-# 	Distributed.pmap(evolve, parameterTuples)
-
 function testEvolve()
 	testPopParams = Dict("numAgents" => 100, "numGenerations" => 150000)
 
 	testEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
 					"gameBenefit" => 5.0, "gameCost" => 1.0, )
 
-	testNorm = LA.ones(Int,2,2)
+	testNorm = LinearAlgebra.ones(Int,2,2)
 	testNorm[1,2] = 0
 	testNorm[2,1] = 1
 	println("test norm: $testNorm")
@@ -228,7 +224,15 @@ function testEvolve()
 	end
 
 end
+# defaultPopParams = Dict("numAgents" => 100, "numGenerations" => 150000)
+# defaultEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
+# 					"gameBenefit" => 5.0, "gameCost" => 1.0, )
+
+# defaultNorm = LinearAlgebra.ones(Int,2,2)
+# defaultNorm[1,2] = 0
+
 
 if TEST
 	testEvolve()
 end
+
