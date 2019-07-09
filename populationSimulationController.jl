@@ -19,7 +19,7 @@ end
 
 
 function evolveDistributed(parameterTuples)
-	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3]) for x in parameterTuples]
+	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4]) for x in parameterTuples]
 	return Distributed.pmap(x->evolve(x...), parameterTuples)
 end
 

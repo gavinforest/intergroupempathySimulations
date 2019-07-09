@@ -438,6 +438,7 @@ defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 150000}
 defaultEnvironmentParameters = {"Ecoop" : 0.0, "Eobs" : 0.0, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
 					"gameBenefit" : 5.0, "gameCost" : 1.0}
 defaultNorm = np.array([[1, 0], [0, 1]], dtype="int64")
+defaultEmpathy = np.zeros((2,2), dtype="float64")
 
 
 def popToArray(x):
@@ -447,6 +448,15 @@ def popToArray(x):
 def envToArray(x):
 	keys = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
 	return np.array([x[key] for key in keys])
+
+def arrayToPop(x):
+	keys = ["numAgents", "numGenerations"]
+	return {key:x[i] for i,key in enumerate(keys)}
+
+def arrayToEnv(x):
+	keys = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
+	return {key:x[i] for i,key in enumerate(keys)}
+
 
 def generateParameterTuples(parameterVariabilitySets):
 	#parameter variability sets are dictionaries of the form
@@ -469,6 +479,7 @@ def generateParameterTuples(parameterVariabilitySets):
 		popParams = defaultPopulationParameters.copy()
 		envParams = defaultEnvironmentParameters.copy()
 		norm = np.copy(defaultNorm)
+		empathy = np.copy(defaultEmpathy)
 
 		for key, item in setting:
 			if key in popParams:
@@ -477,10 +488,13 @@ def generateParameterTuples(parameterVariabilitySets):
 				envParams[key] = item
 			elif key == "norm":
 				norm = item
+			elif key == "empathy":
+				empathy = item
+
 			else:
 				print("*bad key in generateParameterTuples: " + str(key))
 
-		finalTuples.append((popToArray(popParams),envToArray(envParams), norm))
+		finalTuples.append((popToArray(popParams),envToArray(envParams), norm, empathy))
 	
 	return finalTuples
 
@@ -500,10 +514,15 @@ def plotFarmedFig3(zippedStatsAndSets):
 		datapoint =      None
 	return
 
+def makeFig3():
+	paramVariabilitySets = {}
+
 # print(generateParameterTuples({"numGenerations": [100,200,300], "gameBenefit": [5,6,7]}))
 
-paramSets = {"numGenerations": [100,200,300], "gameBenefit": [5,6,7]}
-farm(paramSets)
+paramSets = {"numGenerations": [10000], "gameBenefit": [5]}
+x = list(farm(paramSets))
+print(x)
+x[0][0].plotComprehensive()
 # print J.nprocs()
 
 # with Pool(4) as p:

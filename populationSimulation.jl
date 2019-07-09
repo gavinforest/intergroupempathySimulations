@@ -32,9 +32,9 @@ function stratToNumber(strat::AbstractArray{Int,1})
 	return sum(strat) + 1
 end
 
-function makeAgent(type, ID, stratNumber)
+function makeAgent(type, ID, stratNumber, empathyM)
 	strat = STRATEGIES[stratNumber]
-	myAgent = Agent(type, ID, [0.0,0.0], strat, stratToString(strat), stratNumber)
+	myAgent = Agent(type, ID, empathyM[type+1,:], strat, stratToString(strat), stratNumber)
 	return myAgent
 end
 
@@ -75,7 +75,7 @@ function generateStatistics!(statList, population, reputations, generation, coop
 end
 
 
-function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2})::Array{Dict{String, Array{Float64, 2}}, 1}
+function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2},empathyMatrix::Array{Float64,2})::Array{Dict{String, Array{Float64, 2}}, 1}
 	NUMAGENTS = populationParameters["numAgents"]
 	NUMAGENTS::Int
 	NUMGENERATIONS = populationParameters["numGenerations"]
@@ -99,9 +99,12 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	gameCost = environmentParameters["gameCost"]
 	gameCost:: Float64
 
+
 	oneShotMatrix = [(0.0, 0.0),(-gameCost, gameBenefit - gameCost)]
 
-	population = [makeAgent(i % 2, i, i % 3 + 1) for i in 1:NUMAGENTS]
+	population = [makeAgent(i % 2, i, i % 3 + 1, empathyMatrix) for i in 1:NUMAGENTS]
+
+	println("empathy matrix: $empathyMatrix")
 
 	reputations = LinearAlgebra.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
 
@@ -197,6 +200,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		elapsedSecs = (endTime - startTime) / 1.0e9
 		if PROGRESSVERBOSE && i%50==0
 			println("**Completed modeling generation: $i in $elapsedSecs seconds")
+			println("statistics for this generration are: $(statistics[i])")
 		end
 
 	end
@@ -217,10 +221,10 @@ function testEvolve()
 	println("test norm: $testNorm")
 
 	if TEST
-		stats = evolve(testPopParams, testEnvParams, testNorm)
+		stats = evolve(testPopParams, testEnvParams, testNorm, LA.zeros(Float64, 2,2))
 		println(stats[end])
 	else 
-		return evolve(testPopParams, testEnvParams, testNorm)
+		return evolve(testPopParams, testEnvParams, testNorm, LA.zeros(Float64, 2,2))
 	end
 
 end
