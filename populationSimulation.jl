@@ -2,7 +2,7 @@ import LinearAlgebra
 
 
 DEBUG = true
-PROGRESSVERBOSE = true
+PROGRESSVERBOSE = false
 TEST = false
 
 const ALLC = [1,1]
@@ -107,6 +107,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	println("empathy matrix: $empathyMatrix")
 
 	reputations = LinearAlgebra.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
+	# reputations = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
 	statistics = [ Dict{String, Array{Float64, 2}}() for i in 1:NUMGENERATIONS]
 
@@ -142,6 +143,14 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 					newrep = NORM[agentAction + 1, adversaryRep + 1]
 				else
 					newrep = NORM[agentAction+1, reputations[j,adversaryID] + 1]
+				end
+
+				if rand()<Eobs
+					if newrep ==1
+						newrep = 0
+					else
+						newrep = 1
+					end
 				end
 
 				reputationUpdates[j,a] = newrep - oldrep
@@ -200,7 +209,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		elapsedSecs = (endTime - startTime) / 1.0e9
 		if PROGRESSVERBOSE && i%50==0
 			println("**Completed modeling generation: $i in $elapsedSecs seconds")
-			println("statistics for this generration are: $(statistics[i])")
+			# println("statistics for this generration are: $(statistics[i])")
 		end
 
 	end
@@ -210,9 +219,9 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 end
 
 function testEvolve()
-	testPopParams = Dict("numAgents" => 100, "numGenerations" => 150000)
+	testPopParams = Dict("numAgents" => 100, "numGenerations" => 5000)
 
-	testEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
+	testEnvParams = Dict("Ecoop" => 0.9, "Eobs" => 0.5, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
 					"gameBenefit" => 5.0, "gameCost" => 1.0, )
 
 	testNorm = LinearAlgebra.ones(Int,2,2)
@@ -221,10 +230,10 @@ function testEvolve()
 	println("test norm: $testNorm")
 
 	if TEST
-		stats = evolve(testPopParams, testEnvParams, testNorm, LA.zeros(Float64, 2,2))
+		stats = evolve(testPopParams, testEnvParams, testNorm, LinearAlgebra.zeros(Float64, 2,2))
 		println(stats[end])
 	else 
-		return evolve(testPopParams, testEnvParams, testNorm, LA.zeros(Float64, 2,2))
+		return evolve(testPopParams, testEnvParams, testNorm, LinearAlgebra.zeros(Float64, 2,2))
 	end
 
 end

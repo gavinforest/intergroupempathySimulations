@@ -20,8 +20,10 @@ end
 
 function evolveDistributed(parameterTuples)
 	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4]) for x in parameterTuples]
+	println("Julia got parameter tuples: $parameterTuples" )
 	return Distributed.pmap(x->evolve(x...), parameterTuples)
 end
+
 
 
 println(Distributed.nprocs())
