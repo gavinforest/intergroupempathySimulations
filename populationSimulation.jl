@@ -2,7 +2,7 @@ import LinearAlgebra
 
 
 DEBUG = true
-PROGRESSVERBOSE = false
+PROGRESSVERBOSE = true
 TEST = false
 
 const ALLC = [1,1]
@@ -48,14 +48,17 @@ function moveError(move, ec)
 	end
 end
 
-function generateStatistics!(statList, population, reputations, generation, cooperationRateArray)
+function generateStatistics!(statList, population, reputations, generation, cooperationRateArray, roundPayoffs)
 	typeProportions = LinearAlgebra.zeros(Float64, 2, 4)
 	repStats = LinearAlgebra.zeros(Float64, 3,3)
 	repStatsDenoms = LinearAlgebra.zeros(Float64, 3,3)
+	payoffsByStrat = LinearAlgebra.zeros(Float64, 3, 1)
 
 	for j in 1:length(population)
 		typeProportions[(population[j].type + 1), population[j].stratNumber] += 1.0 
 		typeProportions[(population[j].type + 1), 4] += 1.0 
+
+		payoffsByStrat[population[j].stratNumber] += roundPayoffs[j]
 
 		for k in 1:length(population)
 			repStats[population[j].stratNumber, population[k].stratNumber] += reputations[j,k] * 1.0 
@@ -66,9 +69,15 @@ function generateStatistics!(statList, population, reputations, generation, coop
 
 	repStats = repStats ./ repStatsDenoms
 
+	for j in 1:3
+		payoffsByStrat[j] = payoffsByStrat[j] / (typeProportions[1,j] + typeProportions[2,j])
+	end
+
+
 	statList[generation]["proportions"] = typeProportions
 	statList[generation]["reputationsViewFromTo"] = repStats
 	statList[generation]["cooperationRate"] = cooperationRateArray
+	statList[generation]["roundPayoffs"] = payoffsByStrat
 
 	return statList
 
@@ -100,13 +109,13 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	gameCost:: Float64
 
 
-	oneShotMatrix = [(0.0, 0.0),(-gameCost, gameBenefit - gameCost)]
+	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
 
-	population = [makeAgent(i % 2, i, i % 3 + 1, empathyMatrix) for i in 1:NUMAGENTS]
+	population = [makeAgent(i % 2, i, rand([1,2,3]), empathyMatrix) for i in 1:NUMAGENTS]
 
-	println("empathy matrix: $empathyMatrix")
+	# println("empathy matrix: $empathyMatrix")
 
-	reputations = LinearAlgebra.ones(Int, NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
+	reputations = rand([0,1], NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
 	# reputations = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
 	statistics = [ Dict{String, Array{Float64, 2}}() for i in 1:NUMGENERATIONS]
@@ -168,7 +177,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 		cooperationRate[:,1] = cooperationRate[:,1] ./ cooperationRate[:,2]
 
-		statistics = generateStatistics!(statistics, population, reputations, i, cooperationRate)
+		statistics = generateStatistics!(statistics, population, reputations, i, cooperationRate, roundPayoffs)
 
 		reputations = reputations + reputationUpdates
 
@@ -178,14 +187,14 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		ind1 += 1
 		ind2 += 1
 
-		pCopy = 1.0 / (1.0 + exp( -w * (roundPayoffs[ind2] - roundPayoffs[ind1])))
-		if pCopy < rand()
+		pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
+		if rand() < pCopy
 			population[ind1].strategy = population[ind2].strategy
 			population[ind1].stratString = population[ind2].stratString
 			population[ind1].stratNumber = population[ind2].stratNumber
 		end
 
-		if PROGRESSVERBOSE && i%50==0
+		if PROGRESSVERBOSE && i%1000==0 && DEBUG
 			println("--- simulated generation")
 		end
 
@@ -207,7 +216,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		end
 		endTime = time_ns()
 		elapsedSecs = (endTime - startTime) / 1.0e9
-		if PROGRESSVERBOSE && i%50==0
+		if PROGRESSVERBOSE && i%1000==0
 			println("**Completed modeling generation: $i in $elapsedSecs seconds")
 			# println("statistics for this generration are: $(statistics[i])")
 		end
@@ -219,10 +228,10 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 end
 
 function testEvolve()
-	testPopParams = Dict("numAgents" => 100, "numGenerations" => 5000)
+	testPopParams = Dict("numAgents" => 100, "numGenerations" => 10000)
 
-	testEnvParams = Dict("Ecoop" => 0.9, "Eobs" => 0.5, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
-					"gameBenefit" => 5.0, "gameCost" => 1.0, )
+	testEnvParams = Dict("Ecoop" => 0.02, "Eobs" => 0.02, "ustrat" => 0.0005, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
+					"gameBenefit" => 5.0, "gameCost" => 1.0)
 
 	testNorm = LinearAlgebra.ones(Int,2,2)
 	testNorm[1,2] = 0

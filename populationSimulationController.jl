@@ -1,7 +1,7 @@
 import Distributed
 using Distributed
 
-addprocs(3)
+addprocs(6)
 
 @everywhere import LinearAlgebra
 @everywhere include("populationSimulation.jl")
@@ -20,13 +20,13 @@ end
 
 function evolveDistributed(parameterTuples)
 	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4]) for x in parameterTuples]
-	println("Julia got parameter tuples: $parameterTuples" )
+	# println("Julia got parameter tuples: $parameterTuples" )
 	return Distributed.pmap(x->evolve(x...), parameterTuples)
 end
 
 
 
-println(Distributed.nprocs())
+println("Julia reporting nprocs: $(Distributed.nprocs())")
 
 # defaultPopParams = Dict("numAgents" => 100, "numGenerations" => 150000)
 # defaultEnvParams = Dict("Ecoop" => 0.0, "Eobs" => 0.0, "ustrat" => 0.001, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,

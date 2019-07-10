@@ -10,6 +10,7 @@ import ctypes
 import julia
 J = julia.Julia()
 juliaSim = J.include('populationSimulationController.jl')
+print("PyJulia has nprocs: " + str(J.nprocs()))
 
 
 DEBUG = False
@@ -173,7 +174,7 @@ class populationStatistics:
 			type0DiscFreq.append(1.0 * entry["proportions"]["type0"]["DISC"] / entry["proportions"]["type0"]["total"])
 			type0AllDFreq.append(1.0 * entry["proportions"]["type0"]["ALLD"] / entry["proportions"]["type0"]["total"])
 
-			type0coopFreqs.append(type0AllCFreq[-1] + 0.5 * type0DiscFreq[-1])
+			# type0coopFreqs.append(type0AllCFreq[-1] + 0.5 * type0DiscFreq[-1])
 
 			
 
@@ -181,9 +182,9 @@ class populationStatistics:
 			type1DiscFreq.append(1.0 * entry["proportions"]["type1"]["DISC"] / entry["proportions"]["type1"]["total"])
 			type1AllDFreq.append(1.0 * entry["proportions"]["type1"]["ALLD"] / entry["proportions"]["type1"]["total"])
 
-			type1coopFreqs.append(type1AllCFreq[-1] + 0.5 * type1DiscFreq[-1])
+			# type1coopFreqs.append(type1AllCFreq[-1] + 0.5 * type1DiscFreq[-1])
 
-		totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
+		coops = [entry["cooperationRate"] for entry in self.statisticsList]
 
 		plt.figure(1)
 		numPlotsCol = 3
@@ -191,10 +192,11 @@ class populationStatistics:
 
 		plt.subplot(numPlotsCol,numPlotsRow,1)
 
-		plt.plot(type0coopFreqs, 'b-')
-		plt.plot(type1coopFreqs, "g-")
-		plt.plot([(a + b) / 2.0 for a,b in zip(type1coopFreqs, type0coopFreqs)], color = "grey", linestyle= "dashed")
-		plt.title("Cooperation Rate by Type")
+		plt.plot([entry["ALLD"] for entry in coops], color="red")
+		plt.plot([entry["DISC"] for entry in coops], color="yellow")
+		plt.plot([entry["ALLC"] for entry in coops], color = "green")
+		plt.plot([entry["total"] for entry in coops], color = "grey", linestyle= "dashed")
+		plt.title("Cooperation Rate by Strategy")
 
 
 		
@@ -230,7 +232,7 @@ class populationStatistics:
 		plt.figure(2)
 
 
-		strats = ["ALLC", "DISC", "ALLD"]
+		strats = ["ALLD", "DISC", "ALLC"]
 
 		averageRepALLC = [0 for j in range(self.numGenerations)]
 		averageRepALLD = [0 for j in range(self.numGenerations)]		
@@ -268,6 +270,16 @@ class populationStatistics:
 			plt.plot(averageRepALLD, color = "lightcoral", linestyle = "dashed")
 
 
+		plt.figure(3)
+		plt.subplot(1,1,1)
+		plt.title("Average Round Payoffs by Strategy")
+		avgPayoffs = {}
+		for strat in strats:
+			avgPayoffs[strat] = [self.statisticsList[j]["roundPayoffs"][strat] for j in range(self.numGenerations)]
+
+		plt.plot(avgPayoffs["ALLC"], color="green")
+		plt.plot(avgPayoffs["DISC"], color="yellow")
+		plt.plot(avgPayoffs["ALLD"], color="red")
 
 
 
@@ -281,6 +293,7 @@ def juliaOutputToStatisticsObject(output):
 		coopM = generation['cooperationRate']
 		repM = generation['reputationsViewFromTo']
 		propM = generation['proportions']
+		payM = generation['roundPayoffs']
 
 		proportionDict = {}
 
@@ -302,12 +315,13 @@ def juliaOutputToStatisticsObject(output):
 			for k, tTo in enumerate(strats):
 				reputationDict["viewsFromTo"][vFrom][tTo] = repM[j,k]
 
-		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[0,0], "DISC": coopM[1,0], "ALLD": coopM[2,0]}
+		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0]}
 
 		stat = {}
 		stat["proportions"] = proportionDict
 		stat["cooperationRate"] = cooperationDict
 		stat["reputations"] = reputationDict
+		stat["roundPayoffs"] = {"ALLD": payM[0], "DISC":payM[1], "ALLC":payM[2]}
 
 		statObject.statisticsList[i] = stat
 
@@ -436,12 +450,6 @@ def plotMultiplePopulations(statLists):
 
 
 # ------------------- Simulation Farming ---------------------
-defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 10000}
-defaultEnvironmentParameters = {"Ecoop" : 0.0, "Eobs" : 0.0, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
-					"gameBenefit" : 5.0, "gameCost" : 1.0}
-defaultNorm = np.array([[1, 0], [1, 1]], dtype="int64")
-defaultEmpathy = np.zeros((2,2), dtype="float64")
-
 
 def popToArray(x):
 	keys = ["numAgents", "numGenerations"]
@@ -460,7 +468,7 @@ def arrayToEnv(x):
 	return {key:x[i] for i,key in enumerate(keys)}
 
 
-def generateParameterTuples(parameterVariabilitySets):
+def generateParameterTuples(parameterVariabilitySets, repeats):
 	#parameter variability sets are dictionaries of the form
 	#{ paramater: [values it can take]}
 	#we then try all possible combinations of each
@@ -496,12 +504,13 @@ def generateParameterTuples(parameterVariabilitySets):
 			else:
 				print("*bad key in generateParameterTuples: " + str(key))
 
-		finalTuples.append((popToArray(popParams),envToArray(envParams), norm, empathy))
+		for j in range(repeats):
+			finalTuples.append((popToArray(popParams),envToArray(envParams), norm, empathy))
 	
 	return finalTuples, combos
 
 def farm(parameterVariabilitySets, repeats = 1):
-	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets)
+	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets, repeats)
 	statsList = J.evolveDistributed(argumentTuples * repeats)
 	statsObjs = [juliaOutputToStatisticsObject(obj) for obj in statsList]
 
@@ -525,6 +534,12 @@ def comboToDict(combo):
 	for key,item in combo:
 		ret[key] = item
 	return ret
+defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 10000}
+defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
+					"gameBenefit" : 5.0, "gameCost" : 1.0}
+defaultNorm = np.copy(SIMPLESTANDING)
+defaultEmpathy = np.zeros((2,2), dtype="float64")
+
 
 SIMPLESTANDING = np.array([[1, 0], [1, 1]], dtype="int64")
 STERNJUDGING = np.array([[1, 0], [0, 1]], dtype="int64")
@@ -546,23 +561,26 @@ empathyLevels = [np.ones((2,2), dtype="float64") * (i / 5.0) for i in range(6)]
 
 def makeFig3():
 	if not TEST:
+		repeats = 5
 		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
 								"empathy": empathyLevels, "ustrat": [0.0005]}
 
 		stats = farm(paramVariabilitySets, repeats = 5)
 
 	else:
+		repeats = 3
 		empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
-		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING],
+		paramVariabilitySets = {"norm": [SIMPLESTANDING],
 								"empathy": empathyLevels, "ustrat": [0.0005]}
-		stats = farm(paramVariabilitySets, repeats = 1)
+		stats = farm(paramVariabilitySets, repeats)
 
 	print("stats: " + str(list(stats)))
 
 	plt.figure(1)
 	# plt.subplot(1,3,1)
 	plotDict = {}
-	for statObj, paramTuple, combo in stats:
+	for i in range(int(len(stats) / repeats)):
+		statObj, paramTuple, combo = stats[repeats * i]
 		print("In stat loop")
 		d = comboToDict(combo)
 		ustrat = d["ustrat"]
@@ -576,10 +594,12 @@ def makeFig3():
 			plotDict[ustrat][normName]["empathy"] = []
 			plotDict[ustrat][normName]["cooperation"] = []
 
+
 		plotDict[ustrat][normName]["empathy"].append(np.average(d["empathy"]))
 
 
-		averageCooperation = np.average([stat["cooperationRate"]["total"] for stat in statObj.statisticsList])
+		averageCooperation = np.average([[stat["cooperationRate"]["total"] for stat in stats[repeats * i + j][0].statisticsList] 
+										for j in range(repeats)])
 
 		plotDict[ustrat][normName]["cooperation"].append(averageCooperation)
 
@@ -626,7 +646,7 @@ def makeFig3():
 
 #-------------------- Simulation Farm Statistics Analysis -----------------
 
-# makeFig3()
+makeFig3()
 
 # statsList[0].plotComprehensive()
 
@@ -634,10 +654,10 @@ def makeFig3():
 
 #------------------- Individual Simulation -------------------
 
-stats = juliaOutputToStatisticsObject(J.testEvolve())
-print(stats.statisticsList[-1])
+# stats = juliaOutputToStatisticsObject(J.testEvolve())
+# print(stats.statisticsList[-1])
 
-stats.plotComprehensive()
+# stats.plotComprehensive()
 
 
 
