@@ -15,8 +15,8 @@ print("PyJulia has nprocs: " + str(J.nprocs()))
 
 
 DEBUG = False
-PROGRESSVERBOSE = True
-TEST = False
+PROGRESSVERBOSE = False
+TEST = True
 
 
 # ----------------  Simulation parameters  ----------------
@@ -507,17 +507,21 @@ def generateParameterTuples(parameterVariabilitySets, repeats):
 
 		for j in range(repeats):
 			finalTuples.append((popToArray(popParams),envToArray(envParams), norm, empathy))
-	
+	combos = list(itr.chain.from_iterable([[combo] * repeats for combo in combos]))
+	print("Length of combos list is " + str(len(combos)))
+	print("Length of final tuples list is " + str(len(finalTuples)))
+
 	return finalTuples, combos
 
-def farm(parameterVariabilitySets, repeats = 1):
+def farm(parameterVariabilitySets, printing, repeats = 1):
 	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets, repeats)
-	statsList = J.evolveDistributed(argumentTuples * repeats)
+	statsList = J.evolveDistributed(argumentTuples,printing)
 	statsObjs = [juliaOutputToStatisticsObject(obj) for obj in statsList]
 
-	print("in farm --- statsObjs: " + str(statsObjs))
-	print("in farm --- argumentTuples: " + str(argumentTuples))
-	print("in farm --- variedValues: " + str(list(variedValues)))
+	if DEBUG:
+		print("in farm --- statsObjs: " + str(statsObjs))
+		print("in farm --- argumentTuples: " + str(argumentTuples))
+		print("in farm --- variedValues: " + str(list(variedValues)))
 
 	return list(zip(statsObjs, argumentTuples, variedValues))
 
@@ -561,30 +565,31 @@ def normToAbbreviation(norm, namer = lambda x: "Unknown Name Norm"):
 
 empathyLevels = [np.ones((2,2), dtype="float64") * (i / 5.0) for i in range(6)]
 
+
+
 def makeFig3():
 	if not TEST:
 		repeats = 5
 		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
 								"empathy": empathyLevels, "ustrat": [0.0005, 0.0025, 0.01]}
-
-		stats = farm(paramVariabilitySets, repeats = 5)
-
 	else:
-		repeats = 1
+		repeats = 3
 		# empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
-		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
-								"empathy": empathyLevels, "ustrat": [0.0005, 0.01]}
-		stats = farm(paramVariabilitySets, repeats)
+		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING][1:2],
+								"empathy": empathyLevels, "ustrat": [0.0005], "numGenerations":[20000]}
+	
+	stats = farm(paramVariabilitySets, PROGRESSVERBOSE, repeats)
 
 	if DEBUG:
 		print("stats: " + str(list(stats)))
 
-	plt.figure(1)
+	fig = plt.figure(1)
+	fig.set_size_inches((5 * len(paramVariabilitySets["ustrat"]),5))
 	# plt.subplot(1,3,1)
 	plotDict = {}
 	for i in range(int(len(stats) / repeats)):
 		statObj, paramTuple, combo = stats[repeats * i]
-		print("In stat loop")
+		# print("In stat loop")
 		d = comboToDict(combo)
 		ustrat = d["ustrat"]
 
@@ -611,32 +616,61 @@ def makeFig3():
 
 	numPlots = len(plotDict.keys())
 	for i, ustratLevel in enumerate(sorted(plotDict.keys())):
-		print("plotting u = " + str(ustratLevel))
+		if PROGRESSVERBOSE:
+			print("plotting u = " + str(ustratLevel))
+
+
 		plt.subplot(1,numPlots,i+1)
 		plt.title("u = " + str(ustratLevel))
 		for normName in plotDict[ustratLevel].keys():
 			plt.plot("empathy", "cooperation", data=plotDict[ustratLevel][normName], label=normName, markersize=4)
 
+		axes = plt.gca()
+		axes.set_xlim([0.0,1.0])
+		axes.set_ylim([0.0,1.0])
+
 		plt.legend()
+		plt.xlabel("Empathy")
+		plt.ylabel("Cooperation Rate")
 
-	ODYSSEY = False
-	if len(sys.argv[1:]) > 1:
-		if sys.argv[2] == "odyssey":
-			ODYSSEY = True
+	save = False
+	if len(sys.argv) > 2:
+		if sys.argv[2] == "file":
+			save = True
 
-	
-	if not ODYSSEY:
+
+	if not save:
 		plt.show()
 
 	else:
-		plt.savefig(str(time.time()).split('.')[0] + "empathyFigure3.png")
+		fig.savefig("figures/" + str(time.time()).split('.')[0] + "empathyFigure3.pdf", bbox_inches='tight')
 
 
 	return
 
+def envArrayToDict(array):
+	keyList = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
+	return {keyList[i] : array[i] for i in range(len(keyList))}
+
+def popArrayToDict(array):
+	keyList = ["numAgents", "numGenerations"]
+	return {keyList[i] : array[i] for i in range(len(keyList))}
+
+def singleRun():
+
+	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
+								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":20000}
+
+	for key in paramVariabilitySets.keys():
+		paramChanges[key] = [paramChanges[key]]
+
+	argTuples, _ = generateParameterTuples(paramChanges,1)
+
+	tup = argTuples[0]
 
 
-
+	stats = juliaOutputToStatisticsObject(J.singleRun(tup, PROGRESSVERBOSE))
+	stats.plotComprehensive()
 
 
 
@@ -661,9 +695,12 @@ def makeFig3():
 
 
 
-#-------------------- Simulation Farm Statistics Analysis -----------------
-
-makeFig3()
+#-------------------- Simulation High Level Options -----------------
+if len(sys.argv) > 1:
+	if sys.argv[1] == "fig3":
+		makeFig3()
+	else:
+		singleRun()
 
 # statsList[0].plotComprehensive()
 

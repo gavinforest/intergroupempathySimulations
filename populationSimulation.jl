@@ -84,7 +84,9 @@ function generateStatistics!(statList, population, reputations, generation, coop
 end
 
 
-function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2},empathyMatrix::Array{Float64,2})::Array{Dict{String, Array{Float64, 2}}, 1}
+function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2},empathyMatrix::Array{Float64,2}, printing::Bool)::Array{Dict{String, Array{Float64, 2}}, 1}
+	PROGRESSVERBOSE = printing
+
 	NUMAGENTS = populationParameters["numAgents"]
 	NUMAGENTS::Int
 	NUMGENERATIONS = populationParameters["numGenerations"]
