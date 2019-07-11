@@ -14,47 +14,14 @@ juliaSim = J.include('populationSimulationController.jl')
 print("PyJulia has nprocs: " + str(J.nprocs()))
 
 
+# -------------------------  Flags ----------------------------
+
 DEBUG = False
 PROGRESSVERBOSE = False
 TEST = True
 
 
-# ----------------  Simulation parameters  ----------------
-
-NUMAGENTS = 100
-
-NUMGENERATIONS = 1500
-
-NUMPOPULATIONS = 1
-
-NORM = np.array([[1, 0], [0, 1]], dtype="int64")
-
-#observation error
-Eobs = 0.0
-
-#cooperation error
-Ecoop = 0.0
-
-#imitation pressure
-w = 1.0
-
-#random strategy adoption
-ustrat = 0.001
-
-#random type mutation 0 --> 1
-u01 = 0.00
-
-#random type mutation 1 --> 0
-u10 = 0.00
-
-#cooperation benefit
-gameBenefit = 5
-
-#cooperation cost
-gameCost = 1
-
-
-# --------------- Simulation Classes ---------------------
+# --------------- Statistics and Plotting ---------------------
 
 class populationStatistics:
 	def __init__(self, numGenerations):
@@ -157,134 +124,182 @@ class populationStatistics:
 		plt.plot(type1popSequence, "g-")
 		plt.show()
 
-	def plotComprehensive(self):
-		type0coopFreqs = []
-		type1coopFreqs = []
 
-		type0AllCFreq = []
-		type0DiscFreq = []
-		type0AllDFreq = []
+def createPlotable(statObject):
 
-		type1AllCFreq = []
-		type1DiscFreq = []
-		type1AllDFreq = []
+	strats = ["ALLD", "DISC", "ALLC"]
 
-		for entry in self.statisticsList:
+	plotAbleDict = {"coops" : {}, 
+					"freqs" : {"type1" : {"ALLC" : [],"DISC" : [], "ALLD" : []}, "type0" : {"ALLC" : [],"DISC" : [], "ALLD" : []}}}
 
-			type0AllCFreq.append(1.0 * entry["proportions"]["type0"]["ALLC"] / entry["proportions"]["type0"]["total"])
-			type0DiscFreq.append(1.0 * entry["proportions"]["type0"]["DISC"] / entry["proportions"]["type0"]["total"])
-			type0AllDFreq.append(1.0 * entry["proportions"]["type0"]["ALLD"] / entry["proportions"]["type0"]["total"])
+	for entry in statObject.statisticsList:
+		for typ in ["type0", "type1"]:
+			for strat in ["ALLC","DISC", "ALLD"]:
+				plotAbleDict["freqs"][typ][strat].append(1.0 * entry["proportions"][typ][strat] / entry["proportions"][typ]["total"])
 
-			# type0coopFreqs.append(type0AllCFreq[-1] + 0.5 * type0DiscFreq[-1])
-
-			
-
-			type1AllCFreq.append(1.0 * entry["proportions"]["type1"]["ALLC"] / entry["proportions"]["type1"]["total"])
-			type1DiscFreq.append(1.0 * entry["proportions"]["type1"]["DISC"] / entry["proportions"]["type1"]["total"])
-			type1AllDFreq.append(1.0 * entry["proportions"]["type1"]["ALLD"] / entry["proportions"]["type1"]["total"])
-
-			# type1coopFreqs.append(type1AllCFreq[-1] + 0.5 * type1DiscFreq[-1])
-
-		coops = [entry["cooperationRate"] for entry in self.statisticsList]
-
-		plt.figure(1)
-		numPlotsCol = 3
-		numPlotsRow = 1
-
-		plt.subplot(numPlotsCol,numPlotsRow,1)
-
-		plt.plot([entry["ALLD"] for entry in coops], color="red")
-		plt.plot([entry["DISC"] for entry in coops], color="yellow")
-		plt.plot([entry["ALLC"] for entry in coops], color = "green")
-		plt.plot([entry["total"] for entry in coops], color = "grey", linestyle= "dashed")
-		plt.title("Cooperation Rate by Strategy")
-
-
-		
-		AllCFreq = [(a + b) / 2.0 for a,b in zip(type1AllCFreq, type0AllCFreq)]
-		DiscFreq = [(a + b) / 2.0 for a,b in zip(type1DiscFreq, type0DiscFreq)]
-		AllDFreq = [(a + b) / 2.0 for a,b in zip(type1AllDFreq, type0AllDFreq)]
-
-
-		plt.subplot(numPlotsCol,numPlotsRow, 2)
-		plt.plot(type0AllCFreq, "g-")
-		plt.plot(type0DiscFreq, "y-")
-		plt.plot(type0AllDFreq, "r-")
-
-		plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
-		plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
-		plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
-
-		plt.title("Type A Strategy Frequencies")
+	allCoops = [entry["cooperationRate"]  for entry in statObject.statisticsList]
+	for name in strats + ["total"]:
+		plotAbleDict["coops"][name] = [entry[name] for entry in allCoops]
 
 
 
-		plt.subplot(numPlotsCol,numPlotsRow, 3)
-		plt.plot(type1AllCFreq, "g-")
-		plt.plot(type1DiscFreq, "y-")
-		plt.plot(type1AllDFreq, "r-")
 
-		plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
-		plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
-		plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
+	for strat in ["ALLC","DISC", "ALLD"]:
+		plotAbleDict["freqs"][strat + "s"] = [(a + b) / 2.0 for a,b in 
+											zip(plotAbleDict["freqs"]["type0"][strat], plotAbleDict["freqs"]["type1"][strat])]
+	
 
-		plt.title("Type B Strategy Frequencies")
+	plotAbleDict["averageReps"] = {}
+	for strat in strats:
+		plotAbleDict["averageReps"][strat] = [0 for j in range(statObject.numGenerations)]
 
-		plt.figure(2)
+	for j in range(statObject.numGenerations):
+		for fromStrat in strats:
+			for toStrat in strats:
+				plotAbleDict["averageReps"][toStrat][j] += plotAbleDict["freqs"][fromStrat + "s"][j] * statObject.statisticsList[j]["reputations"]["viewsFromTo"][fromStrat][toStrat]
 
+	plotAbleDict["reputationViewsFromTo"] = {}
+	for fs in strats:
+		plotAbleDict["reputationViewsFromTo"][fs] = {}
+		for ts in strats:
+			plotAbleDict["reputationViewsFromTo"][fs][ts] = [statObject.statisticsList[j]["reputations"]["viewsFromTo"][fs][ts] 
+																for j in range(statObject.numGenerations)]
 
-		strats = ["ALLD", "DISC", "ALLC"]
+	avgPayoffs = {}
+	for strat in strats:
+		avgPayoffs[strat] = [statObject.statisticsList[j]["roundPayoffs"][strat] for j in range(statObject.numGenerations)]
 
-		averageRepALLC = [0 for j in range(self.numGenerations)]
-		averageRepALLD = [0 for j in range(self.numGenerations)]		
-		averageRepDISC = [0 for j in range(self.numGenerations)]
+	plotAbleDict["averagePayoffs"] = avgPayoffs
 
-		for j in range(self.numGenerations):
-			averageRepALLC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLC"]
-			averageRepALLC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLC"]
-			averageRepALLC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLC"]
-
-			averageRepALLD[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLD"]
-			averageRepALLD[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLD"]
-			averageRepALLD[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLD"]
-
-			averageRepDISC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["DISC"]
-			averageRepDISC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["DISC"]
-			averageRepDISC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["DISC"]
+	return plotAbleDict
 
 
+def plotComprehensive(stats, headerString = ""):
 
-		for i, strat in enumerate(strats):
-			plt.subplot(numPlotsCol, numPlotsRow, i + 1)
-			plt.title("Reputations of Strategies as Viewed by " + strat)
+	plotDict = createPlotable(stats)
+	strats = ["ALLD", "DISC", "ALLC"]
 
-			ALLCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLC"] for j in range(self.numGenerations)]
-			ALLDHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLD"] for j in range(self.numGenerations)]
-			DISCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["DISC"] for j in range(self.numGenerations)]
+	# ----------- Formatting ----------
 
-			plt.plot(ALLCHist, "g-")
-			plt.plot(DISCHist, "y-")
-			plt.plot(ALLDHist, "r-")
+	lineFormats = {}
+	for thing in ["color", "linestyle"]:
+		lineFormats[thing] = {}
+		for strat in strats + ["total"]:
+			lineFormats[thing][strat] = {}
 
-			plt.plot(averageRepALLC, color = "lightgreen", linestyle = "dashed")
-			plt.plot(averageRepDISC, color = "palegoldenrod", linestyle = "dashed")
-			plt.plot(averageRepALLD, color = "lightcoral", linestyle = "dashed")
-
-
-		plt.figure(3)
-		plt.subplot(1,1,1)
-		plt.title("Average Round Payoffs by Strategy")
-		avgPayoffs = {}
-		for strat in strats:
-			avgPayoffs[strat] = [self.statisticsList[j]["roundPayoffs"][strat] for j in range(self.numGenerations)]
-
-		plt.plot(avgPayoffs["ALLC"], color="green")
-		plt.plot(avgPayoffs["DISC"], color="yellow")
-		plt.plot(avgPayoffs["ALLD"], color="red")
+	lineFormats["color"]["ALLC"]["direct"] = "green"
+	lineFormats["color"]["ALLC"]["average"] = "lightgreen"
+	lineFormats["color"]["DISC"]["direct"] = "yellow"
+	lineFormats["color"]["DISC"]["average"] = "palegoldenrod"
+	lineFormats["color"]["ALLD"]["direct"] = "red"
+	lineFormats["color"]["ALLD"]["average"] = "lightcoral"
+	lineFormats["color"]["total"]["average"] = "grey"
+	lineFormats["color"]["total"]["direct"] = "grey"
 
 
+	for thing in strats + ["total"]:
+		lineFormats["linestyle"][thing]["average"] = "dashed"
+		lineFormats["linestyle"][thing]["direct"] = "solid"
 
-		plt.show()
+	lineFormats["linestyle"]["total"]["direct"] = "dashed"
+
+	# ------------- Plotting -------------
+	fig = plt.figure(1)
+	numPlotsCol = 3
+	numPlotsRow = 1
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+	plotInd = 1
+
+	plt.subplot(numPlotsCol,numPlotsRow,plotInd)
+	plt.title(headerString + "Cooperation Rate by Strategy")
+	plt.xlabel("Generations")
+	plt.ylabel("Cooperation Rate")
+
+	for thing in strats + ["total"]:
+
+		plt.plot(plotDict["coops"][thing], color=lineFormats["color"][thing]["direct"], 
+											linestyle = lineFormats["linestyle"][thing]["direct"],
+											label = thing)
+	plt.legend()
+	plotInd += 1
+
+
+
+	plt.subplot(numPlotsCol,numPlotsRow, plotInd)
+	plt.title("Type A Strategy Frequencies")
+	plt.xlabel("Generations")
+	plt.ylabel("Frequency")
+
+	for strat in strats:
+		plt.plot(plotDict["freqs"]["type0"][strat], color = lineFormats["color"][strat]["direct"], 
+													linestyle= lineFormats["linestyle"][strat]["direct"])
+		plt.plot(plotDict["freqs"][strat + "s"], color = lineFormats["color"][strat]["average"],
+												linestyle= lineFormats["linestyle"][strat]["average"])
+
+	plotInd += 1
+
+	plt.subplot(numPlotsCol,numPlotsRow, plotInd)
+	plt.title("Type B Strategy Frequencies")
+	plt.xlabel("Generations")
+	plt.ylabel("Frequency")
+
+	for strat in strats:
+		plt.plot(plotDict["freqs"]["type1"][strat], color = lineFormats["color"][strat]["direct"], 
+													linestyle= lineFormats["linestyle"][strat]["direct"])
+		plt.plot(plotDict["freqs"][strat + "s"], color = lineFormats["color"][strat]["average"],
+												linestyle= lineFormats["linestyle"][strat]["average"])
+
+	fig = plt.figure(2)
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+
+	for i, strat in enumerate(strats):
+		plt.subplot(numPlotsCol, numPlotsRow, i + 1)
+		plt.title("Reputations of Strategies as Viewed by " + strat)
+
+		for toStrat in strats:
+			plt.plot(plotDict["reputationViewsFromTo"][strat][toStrat], color = lineFormats["color"][toStrat]["direct"],
+																		linestyle = lineFormats["linestyle"][toStrat]["direct"])
+
+			plt.plot(plotDict["averageReps"][toStrat], color = lineFormats["color"][toStrat]["average"],
+														linestyle = lineFormats["linestyle"][toStrat]["average"])
+
+
+	fig = plt.figure(3)
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+	plt.subplot(1,1,1)
+	plt.title("Average Round Payoffs by Strategy")
+
+	for strat in strats:
+		plt.plot(plotDict["averagePayoffs"][strat], color = lineFormats["color"][strat]["direct"], label = strat)
+
+	plt.legend()
+	plt.show()
+
+
+#-------------------- Multiple Simulation Analysis Functions -----------------
+
+def deepAverage(dictionaries): # I am so proud of this function
+	for key in dictionaries[0].keys():
+		if type(dictionaries[0][key]) != list:
+			dictionaries[0][key] = deepAverage([d[key] for d in dictionaries])
+		else:
+			dictionaries[0][key] = [np.average(el) for el in zip(*tuple([d[key] for d in dictionaries]))]
+
+	return dictionaries[0]
+
+def plotMultiplePopulations(statLists):
+	plotDicts = [createPlotable(stat) for stat in statLists]
+	plotDict = deepAverage(plotDicts)
+	plotComprehensive(plotDicts, "Averaged Over " + str(len(statLists)) + " Runs")
+	
+
+# ------------------- Simulation Farming Utilities ---------------------
 
 def juliaOutputToStatisticsObject(output):
 	statObject = populationStatistics(len(output))
@@ -327,130 +342,6 @@ def juliaOutputToStatisticsObject(output):
 		statObject.statisticsList[i] = stat
 
 	return statObject
-
-#-------------------- Multiple Simulation Analysis Functions -----------------
-def plotMultiplePopulations(statLists):
-	type0coopFreqs = []
-	type1coopFreqs = []
-
-	type0AllCFreq = []
-	type0DiscFreq = []
-	type0AllDFreq = []
-
-	type1AllCFreq = []
-	type1DiscFreq = []
-	type1AllDFreq = []
-
-	for entry in self.statisticsList:
-
-		type0AllCFreq.append(1.0 * entry["proportions"]["type0"]["ALLC"] / entry["proportions"]["type0"]["total"])
-		type0DiscFreq.append(1.0 * entry["proportions"]["type0"]["DISC"] / entry["proportions"]["type0"]["total"])
-		type0AllDFreq.append(1.0 * entry["proportions"]["type0"]["ALLD"] / entry["proportions"]["type0"]["total"])
-
-		type0coopFreqs.append(type0AllCFreq[-1] + 0.5 * type0DiscFreq[-1])
-
-		
-
-		type1AllCFreq.append(1.0 * entry["proportions"]["type1"]["ALLC"] / entry["proportions"]["type1"]["total"])
-		type1DiscFreq.append(1.0 * entry["proportions"]["type1"]["DISC"] / entry["proportions"]["type1"]["total"])
-		type1AllDFreq.append(1.0 * entry["proportions"]["type1"]["ALLD"] / entry["proportions"]["type1"]["total"])
-
-		type1coopFreqs.append(type1AllCFreq[-1] + 0.5 * type1DiscFreq[-1])
-
-	totalCoopFreq = [(type0coopFreqs[i] + type1coopFreqs[i]) / 2.0 for i in range(len(self.statisticsList))]
-
-	plt.figure(1)
-	numPlotsCol = 3
-	numPlotsRow = 1
-
-	plt.subplot(numPlotsCol,numPlotsRow,1)
-
-	plt.plot(type0coopFreqs, 'b-')
-	plt.plot(type1coopFreqs, "g-")
-	plt.plot([(a + b) / 2.0 for a,b in zip(type1coopFreqs, type0coopFreqs)], color = "grey", linestyle= "dashed")
-	plt.title("Cooperation Rate by Type")
-
-
-	
-	AllCFreq = [(a + b) / 2.0 for a,b in zip(type1AllCFreq, type0AllCFreq)]
-	DiscFreq = [(a + b) / 2.0 for a,b in zip(type1DiscFreq, type0DiscFreq)]
-	AllDFreq = [(a + b) / 2.0 for a,b in zip(type1AllDFreq, type0AllDFreq)]
-
-
-	plt.subplot(numPlotsCol,numPlotsRow, 2)
-	plt.plot(type0AllCFreq, "g-")
-	plt.plot(type0DiscFreq, "y-")
-	plt.plot(type0AllDFreq, "r-")
-
-	plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
-	plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
-	plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
-
-	plt.title("Type A Strategy Frequencies")
-
-
-
-	plt.subplot(numPlotsCol,numPlotsRow, 3)
-	plt.plot(type1AllCFreq, "g-")
-	plt.plot(type1DiscFreq, "y-")
-	plt.plot(type1AllDFreq, "r-")
-
-	plt.plot(AllCFreq, color = "lightgreen", linestyle = "dashed")
-	plt.plot(DiscFreq, color = "palegoldenrod", linestyle = "dashed")
-	plt.plot(AllDFreq, color = "lightcoral", linestyle = "dashed")
-
-	plt.title("Type B Strategy Frequencies")
-
-	plt.figure(2)
-
-
-	strats = ["ALLC", "DISC", "ALLD"]
-
-	averageRepALLC = [0 for j in range(NUMGENERATIONS)]
-	averageRepALLD = [0 for j in range(NUMGENERATIONS)]		
-	averageRepDISC = [0 for j in range(NUMGENERATIONS)]
-
-	for j in range(NUMGENERATIONS):
-		averageRepALLC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLC"]
-		averageRepALLC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLC"]
-		averageRepALLC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLC"]
-
-		averageRepALLD[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["ALLD"]
-		averageRepALLD[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["ALLD"]
-		averageRepALLD[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["ALLD"]
-
-		averageRepDISC[j] += AllCFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLC"]["DISC"]
-		averageRepDISC[j] += DiscFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["DISC"]["DISC"]
-		averageRepDISC[j] += AllDFreq[j] * self.statisticsList[j]["reputations"]["viewsFromTo"]["ALLD"]["DISC"]
-
-
-
-	for i, strat in enumerate(strats):
-		plt.subplot(numPlotsCol, numPlotsRow, i + 1)
-		plt.title("Reputations of Strategies as Viewed by " + strat)
-
-		ALLCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLC"] for j in range(NUMGENERATIONS)]
-		ALLDHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["ALLD"] for j in range(NUMGENERATIONS)]
-		DISCHist = [self.statisticsList[j]["reputations"]["viewsFromTo"][strat]["DISC"] for j in range(NUMGENERATIONS)]
-
-		plt.plot(ALLCHist, "g-")
-		plt.plot(DISCHist, "y-")
-		plt.plot(ALLDHist, "r-")
-
-		plt.plot(averageRepALLC, color = "lightgreen", linestyle = "dashed")
-		plt.plot(averageRepDISC, color = "palegoldenrod", linestyle = "dashed")
-		plt.plot(averageRepALLD, color = "lightcoral", linestyle = "dashed")
-
-
-
-
-
-	plt.show()
-	
-
-
-
-# ------------------- Simulation Farming ---------------------
 
 def popToArray(x):
 	keys = ["numAgents", "numGenerations"]
@@ -526,19 +417,13 @@ def farm(parameterVariabilitySets, printing, repeats = 1):
 	return list(zip(statsObjs, argumentTuples, variedValues))
 
 
-def plotFarmedFig3(zippedStatsAndSets):
-	plotLists = {}
-
-	plotParamaters = []
-	for statObj, tuples in zippedStatsAndSets:
-		datapoint =      None
-	return
-
 def comboToDict(combo):
 	ret = {}
 	for key,item in combo:
 		ret[key] = item
 	return ret
+
+# ---------------------- High Level Direction ---------------------
 
 SIMPLESTANDING = np.array([[1, 0], [1, 1]], dtype="int64")
 STERNJUDGING = np.array([[1, 0], [0, 1]], dtype="int64")
@@ -614,6 +499,8 @@ def makeFig3():
 	if DEBUG:
 		print("plotDict: " + str(plotDict))
 
+
+	lineColorsDict = {"SJ": "blue", "SS": "green", "SC": "red", "SH": "purple"}
 	numPlots = len(plotDict.keys())
 	for i, ustratLevel in enumerate(sorted(plotDict.keys())):
 		if PROGRESSVERBOSE:
@@ -623,7 +510,8 @@ def makeFig3():
 		plt.subplot(1,numPlots,i+1)
 		plt.title("u = " + str(ustratLevel))
 		for normName in plotDict[ustratLevel].keys():
-			plt.plot("empathy", "cooperation", data=plotDict[ustratLevel][normName], label=normName, markersize=4)
+			plt.plot("empathy", "cooperation", data=plotDict[ustratLevel][normName], label=normName, 
+				markersize=4, color=lineColorsDict[normName])
 
 		axes = plt.gca()
 		axes.set_xlim([0.0,1.0])
@@ -648,18 +536,11 @@ def makeFig3():
 
 	return
 
-def envArrayToDict(array):
-	keyList = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
-	return {keyList[i] : array[i] for i in range(len(keyList))}
-
-def popArrayToDict(array):
-	keyList = ["numAgents", "numGenerations"]
-	return {keyList[i] : array[i] for i in range(len(keyList))}
 
 def singleRun():
 
 	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
-								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":20000}
+								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":1500}
 
 	for key in paramVariabilitySets.keys():
 		paramChanges[key] = [paramChanges[key]]
@@ -670,48 +551,20 @@ def singleRun():
 
 
 	stats = juliaOutputToStatisticsObject(J.singleRun(tup, PROGRESSVERBOSE))
-	stats.plotComprehensive()
+	plotComprehensive(stats)
 
 
 
-
-
-
-
-
-# print(generateParameterTuples({"numGenerations": [100,200,300], "gameBenefit": [5,6,7]}))
-
-# paramSets = {"numGenerations": [10000], "gameBenefit": [5],"numAgents": [200], "norm": [np.array([[1, 0], [0, 1]], dtype="int64")]}
-# x = list(farm(paramSets))
-# print(x)
-# x[0][0].plotComprehensive()
-# print J.nprocs()
-
-# with Pool(4) as p:
-# 	statsList = p.map(evolve, range(NUMPOPULATIONS))
-
-# print("Simulated " + str(len(statsList)) + " populations!")
-
-
-
-
-#-------------------- Simulation High Level Options -----------------
+#-------------------- Command Line Parsing and Control -----------------
 if len(sys.argv) > 1:
 	if sys.argv[1] == "fig3":
 		makeFig3()
 	else:
 		singleRun()
 
-# statsList[0].plotComprehensive()
 
 
 
-#------------------- Individual Simulation -------------------
-
-# stats = juliaOutputToStatisticsObject(J.testEvolve())
-# print(stats.statisticsList[-1])
-
-# stats.plotComprehensive()
 
 
 
