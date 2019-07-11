@@ -15,7 +15,7 @@ print("PyJulia has nprocs: " + str(J.nprocs()))
 
 DEBUG = False
 PROGRESSVERBOSE = True
-TEST = True
+TEST = False
 
 
 # ----------------  Simulation parameters  ----------------
@@ -534,12 +534,6 @@ def comboToDict(combo):
 	for key,item in combo:
 		ret[key] = item
 	return ret
-defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 10000}
-defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
-					"gameBenefit" : 5.0, "gameCost" : 1.0}
-defaultNorm = np.copy(SIMPLESTANDING)
-defaultEmpathy = np.zeros((2,2), dtype="float64")
-
 
 SIMPLESTANDING = np.array([[1, 0], [1, 1]], dtype="int64")
 STERNJUDGING = np.array([[1, 0], [0, 1]], dtype="int64")
@@ -547,6 +541,13 @@ SCORING = np.array([[0, 0], [1, 1]], dtype="int64")
 SHUNNING = np.array([[0, 0], [0, 1]], dtype="int64")
 
 normAbbreviations = [(SIMPLESTANDING, "SS"), (STERNJUDGING, "SJ"), (SCORING, "SC"), (SHUNNING, "SH")]
+
+
+defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 5000}
+defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
+					"gameBenefit" : 5.0, "gameCost" : 1.0}
+defaultNorm = np.copy(SIMPLESTANDING)
+defaultEmpathy = np.zeros((2,2), dtype="float64")
 
 
 def normToAbbreviation(norm, namer = lambda x: "Unknown Name Norm"):
@@ -563,18 +564,19 @@ def makeFig3():
 	if not TEST:
 		repeats = 5
 		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
-								"empathy": empathyLevels, "ustrat": [0.0005]}
+								"empathy": empathyLevels, "ustrat": [0.0005, 0.0025, 0.01]}
 
 		stats = farm(paramVariabilitySets, repeats = 5)
 
 	else:
-		repeats = 3
-		empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
-		paramVariabilitySets = {"norm": [SIMPLESTANDING],
-								"empathy": empathyLevels, "ustrat": [0.0005]}
+		repeats = 1
+		# empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
+		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
+								"empathy": empathyLevels, "ustrat": [0.0005, 0.01]}
 		stats = farm(paramVariabilitySets, repeats)
 
-	print("stats: " + str(list(stats)))
+	if DEBUG:
+		print("stats: " + str(list(stats)))
 
 	plt.figure(1)
 	# plt.subplot(1,3,1)
@@ -603,14 +605,16 @@ def makeFig3():
 
 		plotDict[ustrat][normName]["cooperation"].append(averageCooperation)
 
-	print("plotDict: " + str(plotDict))
+	if DEBUG:
+		print("plotDict: " + str(plotDict))
+
 	numPlots = len(plotDict.keys())
 	for i, ustratLevel in enumerate(sorted(plotDict.keys())):
 		print("plotting u = " + str(ustratLevel))
 		plt.subplot(1,numPlots,i+1)
 		plt.title("u = " + str(ustratLevel))
 		for normName in plotDict[ustratLevel].keys():
-			plt.plot("empathy", "cooperation", data=plotDict[ustratLevel][normName], label=normName)
+			plt.plot("empathy", "cooperation", data=plotDict[ustratLevel][normName], label=normName, markersize=4)
 
 		plt.legend()
 
