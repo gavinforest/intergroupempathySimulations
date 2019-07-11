@@ -656,10 +656,170 @@ def popArrayToDict(array):
 	keyList = ["numAgents", "numGenerations"]
 	return {keyList[i] : array[i] for i in range(len(keyList))}
 
+
+
+
+
+def createPlotable(statObject):
+
+	strats = ["ALLD", "DISC", "ALLC"]
+
+	plotAbleDict = {"coops" : {}, 
+					"freqs" : {"type1" : {"ALLC" : [],"DISC" : [], "ALLD" : []}, "type0" : {"ALLC" : [],"DISC" : [], "ALLD" : []}}}
+
+	for entry in statObject.statisticsList:
+		for typ in ["type0", "type1"]:
+			for strat in ["ALLC","DISC", "ALLD"]:
+				plotAbleDict["freqs"][typ][strat].append(1.0 * entry["proportions"][typ][strat] / entry["proportions"][typ]["total"])
+
+	allCoops = [entry["cooperationRate"]  for entry in statObject.statisticsList]
+	for name in strats + ["total"]:
+		plotAbleDict["coops"][name] = [entry[name] for entry in allCoops]
+
+
+
+
+	for strat in ["ALLC","DISC", "ALLD"]:
+		plotAbleDict["freqs"][strat + "s"] = [(a + b) / 2.0 for a,b in 
+											zip(plotAbleDict["freqs"]["type0"][strat], plotAbleDict["freqs"]["type1"][strat])]
+	
+
+	plotAbleDict["averageReps"] = {}
+	for strat in strats:
+		plotAbleDict["averageReps"][strat] = [0 for j in range(statObject.numGenerations)]
+
+	for j in range(statObject.numGenerations):
+		for fromStrat in strats:
+			for toStrat in strats:
+				plotAbleDict["averageReps"][toStrat][j] += plotAbleDict["freqs"][fromStrat + "s"][j] * statObject.statisticsList[j]["reputations"]["viewsFromTo"][fromStrat][toStrat]
+
+	plotAbleDict["reputationViewsFromTo"] = {}
+	for fs in strats:
+		plotAbleDict["reputationViewsFromTo"][fs] = {}
+		for ts in strats:
+			plotAbleDict["reputationViewsFromTo"][fs][ts] = [statObject.statisticsList[j]["reputations"]["viewsFromTo"][fs][ts] 
+																for j in range(statObject.numGenerations)]
+
+	avgPayoffs = {}
+	for strat in strats:
+		avgPayoffs[strat] = [statObject.statisticsList[j]["roundPayoffs"][strat] for j in range(statObject.numGenerations)]
+
+	plotAbleDict["averagePayoffs"] = avgPayoffs
+
+	return plotAbleDict
+
+
+def plotComprehensive(stats, headerString = ""):
+
+	plotDict = createPlotable(stats)
+	strats = ["ALLD", "DISC", "ALLC"]
+
+	# ----------- Formatting ----------
+
+	lineFormats = {}
+	for thing in ["color", "linestyle"]:
+		lineFormats[thing] = {}
+		for strat in strats + ["total"]:
+			lineFormats[thing][strat] = {}
+
+	lineFormats["color"]["ALLC"]["direct"] = "green"
+	lineFormats["color"]["ALLC"]["average"] = "lightgreen"
+	lineFormats["color"]["DISC"]["direct"] = "yellow"
+	lineFormats["color"]["DISC"]["average"] = "palegoldenrod"
+	lineFormats["color"]["ALLD"]["direct"] = "red"
+	lineFormats["color"]["ALLD"]["average"] = "lightcoral"
+	lineFormats["color"]["total"]["average"] = "grey"
+	lineFormats["color"]["total"]["direct"] = "grey"
+
+
+	for thing in strats + ["total"]:
+		lineFormats["linestyle"][thing]["average"] = "dashed"
+		lineFormats["linestyle"][thing]["direct"] = "solid"
+
+	lineFormats["linestyle"]["total"]["direct"] = "dashed"
+
+	# ------------- Plotting -------------
+	fig = plt.figure(1)
+	numPlotsCol = 3
+	numPlotsRow = 1
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+	plotInd = 1
+
+	plt.subplot(numPlotsCol,numPlotsRow,plotInd)
+	plt.title(headerString + "Cooperation Rate by Strategy")
+	plt.xlabel("Generations")
+	plt.ylabel("Cooperation Rate")
+
+	for thing in strats + ["total"]:
+
+		plt.plot(plotDict["coops"][thing], color=lineFormats["color"][thing]["direct"], 
+											linestyle = lineFormats["linestyle"][thing]["direct"],
+											label = thing)
+	plt.legend()
+	plotInd += 1
+
+
+
+	plt.subplot(numPlotsCol,numPlotsRow, plotInd)
+	plt.title("Type A Strategy Frequencies")
+	plt.xlabel("Generations")
+	plt.ylabel("Frequency")
+
+	for strat in strats:
+		plt.plot(plotDict["freqs"]["type0"][strat], color = lineFormats["color"][strat]["direct"], 
+													linestyle= lineFormats["linestyle"][strat]["direct"])
+		plt.plot(plotDict["freqs"][strat + "s"], color = lineFormats["color"][strat]["average"],
+												linestyle= lineFormats["linestyle"][strat]["average"])
+
+	plotInd += 1
+
+	plt.subplot(numPlotsCol,numPlotsRow, plotInd)
+	plt.title("Type B Strategy Frequencies")
+	plt.xlabel("Generations")
+	plt.ylabel("Frequency")
+
+	for strat in strats:
+		plt.plot(plotDict["freqs"]["type1"][strat], color = lineFormats["color"][strat]["direct"], 
+													linestyle= lineFormats["linestyle"][strat]["direct"])
+		plt.plot(plotDict["freqs"][strat + "s"], color = lineFormats["color"][strat]["average"],
+												linestyle= lineFormats["linestyle"][strat]["average"])
+
+	fig = plt.figure(2)
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+
+	for i, strat in enumerate(strats):
+		plt.subplot(numPlotsCol, numPlotsRow, i + 1)
+		plt.title("Reputations of Strategies as Viewed by " + strat)
+
+		for toStrat in strats:
+			plt.plot(plotDict["reputationViewsFromTo"][strat][toStrat], color = lineFormats["color"][toStrat]["direct"],
+																		linestyle = lineFormats["linestyle"][toStrat]["direct"])
+
+			plt.plot(plotDict["averageReps"][toStrat], color = lineFormats["color"][toStrat]["average"],
+														linestyle = lineFormats["linestyle"][toStrat]["average"])
+
+
+	fig = plt.figure(3)
+	if len(headerString) > 0:
+		fig.suptitle(headerString)
+
+	plt.subplot(1,1,1)
+	plt.title("Average Round Payoffs by Strategy")
+
+	for strat in strats:
+		plt.plot(plotDict["averagePayoffs"][strat], color = lineFormats["color"][strat]["direct"], label = strat)
+
+	plt.legend()
+	plt.show()
+
 def singleRun():
 
 	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
-								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":20000}
+								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":1500}
 
 	for key in paramVariabilitySets.keys():
 		paramChanges[key] = [paramChanges[key]]
@@ -671,6 +831,7 @@ def singleRun():
 
 	stats = juliaOutputToStatisticsObject(J.singleRun(tup, PROGRESSVERBOSE))
 	stats.plotComprehensive()
+	plotComprehensive(stats)
 
 
 
