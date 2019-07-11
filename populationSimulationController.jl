@@ -21,7 +21,17 @@ end
 function evolveDistributed(parameterTuples)
 	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4]) for x in parameterTuples]
 	# println("Julia got parameter tuples: $parameterTuples" )
-	return Distributed.pmap(x->evolve(x...), parameterTuples)
+	return Distributed.pmap(enumerate(parameterTuples)) do tup
+		ind = tup[1]
+		x = tup[2]
+		starting = time_ns()
+		println("Processing job: $ind")
+		res = evolve(x...)
+		t = (time_ns() - starting) / 1.0e9
+		println("Processed job $ind in $t seconds")
+		return res
+	end
+
 end
 
 

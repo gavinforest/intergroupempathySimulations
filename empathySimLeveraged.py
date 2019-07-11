@@ -5,6 +5,7 @@ import json
 import itertools as itr
 from multiprocessing import Pool
 import time
+import sys
 import random
 import ctypes
 import julia
@@ -618,7 +619,19 @@ def makeFig3():
 
 		plt.legend()
 
-	plt.show()
+	ODYSSEY = False
+	if len(sys.argv[1:]) > 1:
+		if sys.argv[2] == "odyssey":
+			ODYSSEY = True
+
+	
+	if not ODYSSEY:
+		plt.show()
+
+	else:
+		plt.savefig(str(time.time()).split('.')[0] + "empathyFigure3.png")
+
+
 	return
 
 
