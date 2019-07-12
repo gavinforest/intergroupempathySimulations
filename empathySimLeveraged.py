@@ -18,7 +18,7 @@ print("PyJulia has nprocs: " + str(J.nprocs()))
 
 DEBUG = False
 PROGRESSVERBOSE = False
-TEST = True
+TEST = False 
 
 
 # --------------- Statistics and Plotting ---------------------
@@ -456,7 +456,7 @@ def makeFig3():
 	if not TEST:
 		repeats = 5
 		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
-								"empathy": empathyLevels, "ustrat": [0.0005, 0.0025, 0.01]}
+								"empathy": empathyLevels, "ustrat": [0.0005, 0.0025, 0.01], "numGenerations":[20000]}
 	else:
 		repeats = 3
 		# empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
@@ -537,7 +537,7 @@ def makeFig3():
 	return
 
 
-def singleRun():
+def singleParameterRun():
 
 	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
 								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":1500}
@@ -555,12 +555,13 @@ def singleRun():
 
 
 
+
 #-------------------- Command Line Parsing and Control -----------------
 if len(sys.argv) > 1:
 	if sys.argv[1] == "fig3":
 		makeFig3()
 	else:
-		singleRun()
+		singleParameterRun()
 
 
 
