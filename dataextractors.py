@@ -14,8 +14,7 @@ class cooperationRateTT(object):
 		self.type = "full"
 
 	def __call__(self,statObj):
-		statDict = createPlotable(statObj)
-		return np.average(statDict["coops"]["total"])
+		return np.average([statDict["cooperationRate"]["total"] for statDict in statDict.statisticsList])
 
 
 class cooperationRateTG(object):

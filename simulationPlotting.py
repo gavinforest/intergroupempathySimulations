@@ -15,7 +15,7 @@ from utilities import *
 
 def searchstats(plotParam, Stats):
 	#plotParam assumed to be dictionary
-	stats = [s[0] for s in Stats[:]]
+	stats = [s[0] for s in Stats]
 	for name in plotParam.keys():
 		if name == "norm":
 			stats = [stat for stat in stats if normToAbbreviation(stats.norm) == plotParam["norm"]]
