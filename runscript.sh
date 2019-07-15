@@ -2,6 +2,7 @@
 #SBATCH -n 4
 #SBATCH -N 4
 #SBATCH -t 60
+#SBATCH -p serial_requeue
 #SBATCH --mem=4000
 
 

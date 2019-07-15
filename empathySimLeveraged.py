@@ -6,35 +6,35 @@ import itertools as itr
 from multiprocessing import Pool
 import time
 import sys
-import random
-import ctypes
+import argparse
 import julia
+import simulationPlotting as simPlot
 J = julia.Julia()
 juliaSim = J.include('populationSimulationController.jl')
 print("PyJulia has nprocs: " + str(J.nprocs()))
 
 
-# -------------------------  Flags ----------------------------
+# -------------------------  Flags, Consants, Parsers, Utilties ----------------------------
 
-DEBUG = False
-PROGRESSVERBOSE = False
-TEST = False 
+from constantsAndParsers import *
+from utilities import *
 
 
 # --------------- Statistics and Plotting ---------------------
 
 class populationStatistics:
-	def __init__(self, numGenerations):
+	def __init__(self, numGenerations, argTuple):
 		self.statisticsList = [ None for k in range(numGenerations)]
-		self.populationHistory = [None for k in range(numGenerations)]
 		self.numGenerations = numGenerations
+		self.popParams = arrayToPop(argTuple[0])
+		self.envParams = arrayToEnv(argTuple[1])
+		self.norm = argTuple[2]
+		self.empathy = argTuple[3]
 
 	def generateStatistics(self, population, reputations, generation, cooperationRateD):
 
 		if DEBUG:
 			print("--- generating statistics for generation: " + str(generation))
-
-		# self.populationHistory[generation] = population[:]
 
 
 
@@ -123,55 +123,6 @@ class populationStatistics:
 		plt.plot(type0popSequence, 'bo')
 		plt.plot(type1popSequence, "g-")
 		plt.show()
-
-
-def createPlotable(statObject):
-
-	strats = ["ALLD", "DISC", "ALLC"]
-
-	plotAbleDict = {"coops" : {}, 
-					"freqs" : {"type1" : {"ALLC" : [],"DISC" : [], "ALLD" : []}, "type0" : {"ALLC" : [],"DISC" : [], "ALLD" : []}}}
-
-	for entry in statObject.statisticsList:
-		for typ in ["type0", "type1"]:
-			for strat in ["ALLC","DISC", "ALLD"]:
-				plotAbleDict["freqs"][typ][strat].append(1.0 * entry["proportions"][typ][strat] / entry["proportions"][typ]["total"])
-
-	allCoops = [entry["cooperationRate"]  for entry in statObject.statisticsList]
-	for name in strats + ["total"]:
-		plotAbleDict["coops"][name] = [entry[name] for entry in allCoops]
-
-
-
-
-	for strat in ["ALLC","DISC", "ALLD"]:
-		plotAbleDict["freqs"][strat + "s"] = [(a + b) / 2.0 for a,b in 
-											zip(plotAbleDict["freqs"]["type0"][strat], plotAbleDict["freqs"]["type1"][strat])]
-	
-
-	plotAbleDict["averageReps"] = {}
-	for strat in strats:
-		plotAbleDict["averageReps"][strat] = [0 for j in range(statObject.numGenerations)]
-
-	for j in range(statObject.numGenerations):
-		for fromStrat in strats:
-			for toStrat in strats:
-				plotAbleDict["averageReps"][toStrat][j] += plotAbleDict["freqs"][fromStrat + "s"][j] * statObject.statisticsList[j]["reputations"]["viewsFromTo"][fromStrat][toStrat]
-
-	plotAbleDict["reputationViewsFromTo"] = {}
-	for fs in strats:
-		plotAbleDict["reputationViewsFromTo"][fs] = {}
-		for ts in strats:
-			plotAbleDict["reputationViewsFromTo"][fs][ts] = [statObject.statisticsList[j]["reputations"]["viewsFromTo"][fs][ts] 
-																for j in range(statObject.numGenerations)]
-
-	avgPayoffs = {}
-	for strat in strats:
-		avgPayoffs[strat] = [statObject.statisticsList[j]["roundPayoffs"][strat] for j in range(statObject.numGenerations)]
-
-	plotAbleDict["averagePayoffs"] = avgPayoffs
-
-	return plotAbleDict
 
 
 def plotComprehensive(stats, headerString = ""):
@@ -284,15 +235,6 @@ def plotComprehensive(stats, headerString = ""):
 
 #-------------------- Multiple Simulation Analysis Functions -----------------
 
-def deepAverage(dictionaries): # I am so proud of this function
-	for key in dictionaries[0].keys():
-		if type(dictionaries[0][key]) != list:
-			dictionaries[0][key] = deepAverage([d[key] for d in dictionaries])
-		else:
-			dictionaries[0][key] = [np.average(el) for el in zip(*tuple([d[key] for d in dictionaries]))]
-
-	return dictionaries[0]
-
 def plotMultiplePopulations(statLists):
 	plotDicts = [createPlotable(stat) for stat in statLists]
 	plotDict = deepAverage(plotDicts)
@@ -301,8 +243,8 @@ def plotMultiplePopulations(statLists):
 
 # ------------------- Simulation Farming Utilities ---------------------
 
-def juliaOutputToStatisticsObject(output):
-	statObject = populationStatistics(len(output))
+def juliaOutputToStatisticsObject(output, argTuple):
+	statObject = populationStatistics(len(output), argTuple)
 	statObject.statisticsList = [None for i in range(len(output))]
 
 	for i, generation in enumerate(output):
@@ -342,22 +284,6 @@ def juliaOutputToStatisticsObject(output):
 		statObject.statisticsList[i] = stat
 
 	return statObject
-
-def popToArray(x):
-	keys = ["numAgents", "numGenerations"]
-	return np.array([x[key] for key in keys])
-
-def envToArray(x):
-	keys = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
-	return np.array([x[key] for key in keys])
-
-def arrayToPop(x):
-	keys = ["numAgents", "numGenerations"]
-	return {key:x[i] for i,key in enumerate(keys)}
-
-def arrayToEnv(x):
-	keys = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
-	return {key:x[i] for i,key in enumerate(keys)}
 
 
 def generateParameterTuples(parameterVariabilitySets, repeats):
@@ -407,7 +333,7 @@ def generateParameterTuples(parameterVariabilitySets, repeats):
 def farm(parameterVariabilitySets, printing, repeats = 1):
 	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets, repeats)
 	statsList = J.evolveDistributed(argumentTuples,printing)
-	statsObjs = [juliaOutputToStatisticsObject(obj) for obj in statsList]
+	statsObjs = [juliaOutputToStatisticsObject(obj,argTuple) for obj, argTuple in zip(statsList, argumentTuples)]
 
 	if DEBUG:
 		print("in farm --- statsObjs: " + str(statsObjs))
@@ -425,43 +351,18 @@ def comboToDict(combo):
 
 # ---------------------- High Level Direction ---------------------
 
-SIMPLESTANDING = np.array([[1, 0], [1, 1]], dtype="int64")
-STERNJUDGING = np.array([[1, 0], [0, 1]], dtype="int64")
-SCORING = np.array([[0, 0], [1, 1]], dtype="int64")
-SHUNNING = np.array([[0, 0], [0, 1]], dtype="int64")
-
-normAbbreviations = [(SIMPLESTANDING, "SS"), (STERNJUDGING, "SJ"), (SCORING, "SC"), (SHUNNING, "SH")]
-
-
-defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 5000}
-defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
-					"gameBenefit" : 5.0, "gameCost" : 1.0}
-defaultNorm = np.copy(SIMPLESTANDING)
-defaultEmpathy = np.zeros((2,2), dtype="float64")
-
-
-def normToAbbreviation(norm, namer = lambda x: "Unknown Name Norm"):
-	for n, abbrv in normAbbreviations:
-		if np.array_equal(norm, n):
-			return abbrv
-
-	return namer(norm)
-
-
-empathyLevels = [np.ones((2,2), dtype="float64") * (i / 5.0) for i in range(6)]
-
 
 
 def makeFig3():
 	if not TEST:
 		repeats = 5
 		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING],
-								"empathy": empathyLevels, "ustrat": [0.0005, 0.0025, 0.01], "numGenerations":[20000]}
+								"empathy": defaultEmpathyLevels, "ustrat": [0.0005, 0.0025, 0.01], "numGenerations":[20000]}
 	else:
-		repeats = 3
+		repeats = 1
 		# empathyLevels = [np.ones((2,2), dtype="float64") * (i / 2.0) for i in range(3)]
-		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING][1:2],
-								"empathy": empathyLevels, "ustrat": [0.0005], "numGenerations":[20000]}
+		paramVariabilitySets = {"norm": [SIMPLESTANDING, STERNJUDGING, SCORING, SHUNNING][0:1],
+								"empathy": defaultEmpathyLevels, "ustrat": [0.0005], "numGenerations":[150000]}
 	
 	stats = farm(paramVariabilitySets, PROGRESSVERBOSE, repeats)
 
@@ -536,11 +437,14 @@ def makeFig3():
 
 	return
 
+# def investigateTimeScale(paramVariabilitySets):
+
+
 
 def singleParameterRun():
 
 	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
-								"empathy": empathyLevels[3], "ustrat": 0.0005, "numGenerations":1500}
+								"empathy": defaultEmpathyLevels[0], "ustrat": 0.0005, "numGenerations":50000}
 
 	for key in paramVariabilitySets.keys():
 		paramChanges[key] = [paramChanges[key]]
@@ -550,18 +454,49 @@ def singleParameterRun():
 	tup = argTuples[0]
 
 
-	stats = juliaOutputToStatisticsObject(J.singleRun(tup, PROGRESSVERBOSE))
+	stats = juliaOutputToStatisticsObject(J.singleRun(tup, PROGRESSVERBOSE), tup)
 	plotComprehensive(stats)
+
+
+
+def runFromJson(filename, printing, save):
+	with open(filename) as f:
+		paramObject = json.load(f)
+
+	if printing:
+		print("Json loaded object: " + str(paramObject))
+
+	paramObject["variabilitySets"] = jsonVariabilitySetParser(paramObject["variabilitySets"])
+	variabilitySets = paramObject["variabilitySets"]
+
+	repeats = 1
+	if "repeats" in paramObject:
+		repeats = paramObject["repeats"]
+
+
+	zipped = farm(variabilitySets, printing, repeats)
+
+	simPlot.generalPlotter(paramObject, zipped, printing, save)
 
 
 
 
 #-------------------- Command Line Parsing and Control -----------------
+
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input", type = str, help="parameter input json file")
+parser.add_argument("-v", "--verbose", action="store_true")
+parser.add_argument("function", help="", choices=["fig3", "singlerun", "json"])
+parser.add_argument("-s", "--save", action="store_true")
+args = parser.parse_args()
+
 if len(sys.argv) > 1:
-	if sys.argv[1] == "fig3":
+	if args.function == "fig3":
 		makeFig3()
-	else:
+	elif args.function == "singlerun":
 		singleParameterRun()
+	else:
+		runFromJson(args.input, args.verbose, args.save)
 
 
 

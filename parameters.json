@@ -1,0 +1,29 @@
+{
+	"plots": [
+		{ "ustrat" : 0.0005, "plotName": "u = 0.0005"},
+		{"ustrat" : 0.0025, "plotName" : "u = 0.0025"}
+	],
+	"variabilitySets" : 
+		{ "empathy" : [0.0,0.2,0.4,0.6,0.8,1.0], 
+							"norm" : ["SJ"],
+							"ustrat" : [0.0005, 0.0025],
+		},
+		
+	"defaults" : {
+		"xextractor" : "simple empathy",
+		"yextractor" : "cooperation rate total total"
+	},
+	"extractors" : [
+		{
+			"plotName": "u = 0.0005"
+		},
+		{
+			"plotName" : "u = 0.0025"
+		}
+	],
+	"repeats" : 2
+	
+
+
+
+}
