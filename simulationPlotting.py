@@ -1,5 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import json
+import time
 
 from constantsAndParsers import *
 from dataextractors import *
@@ -134,7 +136,10 @@ def generalPlotter(plottingParameters, stats, printing = False, savefig = True):
 			plt.plot("x", "y", data = averaged, linestyle="solid")
 
 	if savefig:
-		fig.savefig("figures/" + str(time.time()).split('.')[0] + "empathyrun.pdf", bbox_inches='tight')
+		timestamp = str(time.time()).split('.')[0]
+		fig.savefig("figures/" + timestamp + "empathyrun.pdf", bbox_inches='tight')
+		with open("figures/" + timestamp + "empathyrunSETTINGS.json", "w") as f:
+			json.dump(parsedJsonToJsonable(plottingParameters), f)
 
 	else:
 		plt.show()

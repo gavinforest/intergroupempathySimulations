@@ -119,5 +119,25 @@ def jsonVariabilitySetParser(dicty):
 
 	return dicty
 
+def parsedJsonToJsonable(params):
+	parsedPlots = []
+	for plot in params["plots"]:
+		if "norm" in plot:
+			plot["norm"] = normToAbbreviation(plot["norm"])
+		if "empathy" in plot:
+			plot["empathy"] = np.average(plot["empathy"])
+		parsedPlots.append(plot)
+
+
+	params["plots"] = parsedPlots
+
+	if "empathy" in params["variabilitySets"]:
+		params["variabilitySets"]["empathy"] = [np.average(thing) for thing in params["variabilitySets"]["empathy"]]
+
+	if "norm" in params["variabilitySets"]:
+		params["variabilitySets"]["norm"] = [normToAbbreviation(thing) for thing in params["variabilitySets"]["norm"]]
+
+
+
 
 

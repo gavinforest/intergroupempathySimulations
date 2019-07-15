@@ -331,7 +331,11 @@ def generateParameterTuples(parameterVariabilitySets, repeats):
 	return finalTuples, combos
 
 def farm(parameterVariabilitySets, printing, repeats = 1):
+	# if type(parameterVariabilitySets) is dict:
 	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets, repeats)
+	# else:
+
+
 	statsList = J.evolveDistributed(argumentTuples,printing)
 	statsObjs = [juliaOutputToStatisticsObject(obj,argTuple) for obj, argTuple in zip(statsList, argumentTuples)]
 
@@ -466,6 +470,7 @@ def runFromJson(filename, printing, save):
 	if printing:
 		print("Json loaded object: " + str(paramObject))
 
+	# paramObject["variabilitySets"] = [jsonVariabilitySetParser(obj) in paramObject["variabilitySets"]]
 	paramObject["variabilitySets"] = jsonVariabilitySetParser(paramObject["variabilitySets"])
 	variabilitySets = paramObject["variabilitySets"]
 
@@ -475,6 +480,7 @@ def runFromJson(filename, printing, save):
 
 
 	zipped = farm(variabilitySets, printing, repeats)
+
 
 	simPlot.generalPlotter(paramObject, zipped, printing, save)
 
