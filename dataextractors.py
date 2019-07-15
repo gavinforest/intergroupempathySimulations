@@ -37,6 +37,17 @@ class simpleEmpathy(object):
 		empMatrix = statObj.empathy
 		return np.average(empMatrix)
 
+class simpleEmpathyType1():
+	def __init__(self):
+		self.name = "simple empathy type1"
+		self.type = "full"
+
+	def __call__(self,statObj):
+		empMatrix = statObj.empathy
+		return np.average(empMatrix[1,:])
+
+
 
 extractors = {"generations": generations(), "cooperation rate total total" : cooperationRateTT(),
-			 "simple empathy" : simpleEmpathy(), "cooperation rate total generational" : cooperationRateTG()}
+			 "simple empathy" : simpleEmpathy(), "cooperation rate total generational" : cooperationRateTG(),
+			 "simple empathy type1" : simpleEmpathyType1()}

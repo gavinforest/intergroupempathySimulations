@@ -110,12 +110,44 @@ def createPlotable(statObject):
 
 
 # ----------------------------- Constants for naming complicated things in parameter Json ---------------------------
+EMPATHYTEMPLATES = {"unilateral01" : np.array([[1,1],[0,0]], dtype = "float64"), "egalitarian" : np.ones((2,2), dtype="float64"),
+					"unilateral10" : np.array([[0,0],[1,1]], dtype = "float64")}
+
+def genEmpathies(command):
+	commandList = command.split(" ")
+	number = int(commandList[1])
+	typ = commandList[2]
+
+	empathyList = []
+
+	if typ == "unilateral01GrowEven":
+		base = EMPATHYTEMPLATES["unilateral01"]
+
+		added = EMPATHYTEMPLATES["unilateral10"]
+		for i in range(number):
+			empathyList.append(base + added * (i / (number - 1.0)))
+
+
+	return empathyList
+
+
+
+
 
 def jsonVariabilitySetParser(dicty):
 	if "norm" in dicty:
 		dicty["norm"] = [abbreviationToNorm[name] for name in dicty["norm"]]
 	if "empathy" in dicty:
-		dicty["empathy"] = [np.ones((2,2), dtype="float64") * x for x in dicty["empathy"] if type(x) == float]
+		empathyList = []
+		for el in dicty["empathy"]:
+			if type(el) == float:
+				empathyList.append(np.ones((2,2), dtype="float64") * el)
+			elif type(el) == str:
+				empathyList = empathyList + genEmpathies(el)
+			elif type(el) == list:
+				empathyList.append(np.array(el), dtype="float64")
+
+		dicty["empathy"] = empathyList
 
 	return dicty
 
@@ -130,9 +162,8 @@ def parsedJsonToJsonable(params):
 
 
 	params["plots"] = parsedPlots
-
 	if "empathy" in params["variabilitySets"]:
-		params["variabilitySets"]["empathy"] = [np.average(thing) for thing in params["variabilitySets"]["empathy"]]
+		params["variabilitySets"]["empathy"] = [thing.tolist() for thing in params["variabilitySets"]["empathy"]]
 
 	if "norm" in params["variabilitySets"]:
 		params["variabilitySets"]["norm"] = [normToAbbreviation(thing) for thing in params["variabilitySets"]["norm"]]

@@ -1,0 +1,21 @@
+{
+	"plots": [
+		{ "ustrat" : 0.0005, "plotName": "u = 0.0005"},
+		{"ustrat" : 0.0025, "plotName" : "u = 0.0025"}
+	],
+	"variabilitySets" :
+		{ "empathy" : ["genEmpathies 6 unilateral01GrowEven"], 
+							"norm" : ["SJ"],
+							"ustrat" : [0.0005, 0.0025],
+							"numGenerations" : [50000]
+		},
+		
+	"defaults" : {
+		"xextractor" : "simple empathy type1",
+		"yextractor" : "cooperation rate total total"
+	},
+	"extractors" : [
+	],
+	"repeats" : 5
+	
+}
