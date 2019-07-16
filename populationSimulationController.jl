@@ -1,7 +1,7 @@
 import Distributed
 using Distributed
 
-addprocs(6)
+addprocs(9)
 
 @everywhere import LinearAlgebra
 @everywhere include("populationSimulation.jl")

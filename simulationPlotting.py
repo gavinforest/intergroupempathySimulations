@@ -26,7 +26,7 @@ def searchstats(plotParam, Stats):
 			stats = [stat for stat in stats if stat.envParams[name] == plotParam[name]]
 		elif name in defaultPopNames:
 			stats = [stat for stat in stats if stat.popParams[name] == plotParam[name]]
-		elif name == "plotName":
+		elif name == "plotName" or name == "extractors":
 			pass
 		else:
 			raise ValueError("Bad JSON object, unrecognized keyword: " + str(name))
@@ -46,10 +46,16 @@ def generalPlotter(plottingParameters, stats, printing = False, savefig = True):
 	defaultYExtractor = extractors[plottingParameters["defaults"]["yextractor"]]
 
 
-	xAxisExtractors = {param["plotName"] : extractors[param["xextractor"]] for param in plottingParameters["extractors"] if "xextractor" in param}
+	xAxisExtractors = {subplot["plotName"] : subplot["extractors"]["xextractor"] for subplot in subPlots if "xextractor" in subplot["extractors"]}
 
 	#default y axis extractor is cooperation rate
-	yAxisExtractors = {param["plotName"] : extractors[param["yextractor"]] for param in plottingParameters["extractors"] if "yextractor" in param}
+	yAxisExtractors = {subplot["plotName"] : subplot["extractors"]["yextractors"] for subplot in subPlots if "yextractors" in subplot["extractors"]}
+
+	for key in xAxisExtractors.keys():
+		xAxisExtractors[key] = [extractors[name] for name in xAxisExtractors[key]]
+
+	for key in yAxisExtractors.keys():
+		yAxisExtractors[key] = [extractors[name] for name in yAxisExtractors[key]]
 
 
 	if printing:
@@ -72,7 +78,7 @@ def generalPlotter(plottingParameters, stats, printing = False, savefig = True):
 		specificStats = searchstats(plotParam, stats)
 
 		xextractor = None
-		yextractor = None
+		yextractors = None
 
 		plotName = plotParam["plotName"]
 
@@ -82,29 +88,31 @@ def generalPlotter(plottingParameters, stats, printing = False, savefig = True):
 			xextractor = defaultXExtractor
 
 		if plotName in yAxisExtractors:
-			yextractor = yAxisExtractors[plotName]
+			yextractors = yAxisExtractors[plotName]
 		else:
-			yextractor = defaultYExtractor
+			yextractors = [defaultYExtractor]
 
 
 
 		plt.subplot(numRows, int(width / 5), i + 1)
 		plt.title(plotName)
 		plt.xlabel(xextractor.name)
-		plt.ylabel(yextractor.name)
+		plt.ylabel(yextractors[0].name)
 
-		series = []
+		series = [[] for i in range(len(yextractors))]
 
-		if "generational" not in yextractor.type and xextractor.name == "generations":
-			raise ValueError("Bad JSON, paired yextractor " + yextractor.name + " with generations xextractor -- misaligned types")
+		for i,yextractor in enumerate(yextractors):
 
-		if "generational" in yextractor.type and xextractor.name == "generations":
-			for stat in specificStats:
-				series.append({"y": yextractor(stat), "x": xextractor(stat)})
+			if "generational" not in yextractor.type and xextractor.name == "generations":
+				raise ValueError("Bad JSON, paired yextractor " + yextractor.name + " with generations xextractor -- misaligned types")
 
-		else:
-			for stat in specificStats:
-				series.append((xextractor(stat), yextractor(stat)))
+			if "generational" in yextractor.type and xextractor.name == "generations":
+				for stat in specificStats:
+					series[i].append({"y": yextractor(stat), "x": xextractor(stat)})
+
+			else:
+				for stat in specificStats:
+					series[i].append((xextractor(stat), yextractor(stat)))
 
 
 		if printing:
@@ -112,28 +120,39 @@ def generalPlotter(plottingParameters, stats, printing = False, savefig = True):
 			pass
 
 
-		if type(series[0]) == tuple:
-			plt.scatter([x for x,y in series], [y for x,y in series])
-			things = {}
-			for x,y in series:
+		if type(series[0][0]) == tuple:
+			plt.scatter([x for x,y in series[0]], [y for x,y in series[0]])
 
-				if x not in things:
-					things[x] = []
+			for i, subseries in enumerate(series):
+				things = {}
+				for x,y in subseries:
 
-				things[x].append(y)
+					if x not in things:
+						things[x] = []
 
-			for key in things.keys():
-				things[key] = np.average(things[key])
+					things[x].append(y)
 
-			pairs = [(key, things[key]) for key in things.keys()]
-			plt.plot([x for x,y in pairs], [y for x,y in pairs])
+				for key in things.keys():
+					things[key] = np.average(things[key])
+
+				pairs = [(key, things[key]) for key in things.keys()]
+				plt.plot([x for x,y in pairs], [y for x,y in pairs], label="averaged " + yextractors[i].name)
+
+			plt.legend()
+			axes = plt.gca()
+			axes.set_ylim([0.0,1.0])
 
 		else:
-			for d in series:
-				plt.plot("x", "y", 'o', data = d)
+			for d in series[0]:
+				plt.plot("x", "y", 'o', data = d, label = yextractors[0].name)
 
-			averaged = deepAverage(series)
-			plt.plot("x", "y", data = averaged, linestyle="solid")
+			for i, subseries in series:
+				averaged = deepAverage(subseries)
+				plt.plot("x", "y", data = averaged, linestyle="solid", label = "averaged " + yextractors[i].name)
+
+			plt.legend()
+			axes = plt.gca()
+			axes.set_ylim([0.0,1.0])
 
 	if savefig:
 		timestamp = str(time.time()).split('.')[0]

@@ -1,11 +1,28 @@
 {
 	"plots": [
-		{"ustrat" : 0.0025, "plotName" : "Intergoup Cooperation Rate"},
-		{"ustrat" : 0.0025, "plotName" : "Intragoup Cooperation Rate"}
-		{"ustrat" : 0.0025, "plotName" : "Total Cooperation Rate"}
+		{"ustrat" : 0.0025, "plotName" : "Intergoup Cooperation Rate",
+			"extractors" : {
+				"yextractors" : [
+					"cooperation rate intergroup total", "cooperation rate intragroup total"]
+			}
+		},
+
+		{"ustrat" : 0.0025, "plotName" : "Intragroup Cooperation Rate",
+			"extractors" : {
+				"yextractors" : [
+					"cooperation rate intragroup total"]
+			}
+		},
+
+		{"ustrat" : 0.0025, "plotName" : "Total Cooperation Rate", 
+			"extractors": {
+				"yextractors": [ "cooperation rate total total"
+				]
+			}
+		}
 	],
 	"variabilitySets" :
-		{ "empathy" : ["genEmpathies 12 intergroupGrow"], 
+		{ "empathy" : ["genEmpathies 12 intergroupGrow "], 
 							"norm" : ["SJ"],
 							"ustrat" : [0.0025],
 							"numGenerations" : [100000]
@@ -15,16 +32,7 @@
 		"xextractor" : "simple intergroup empathy",
 		"yextractor" : "cooperation rate intergroup total"
 	},
-	"extractors" : [ 
-		{
-			"plotName": "Total Cooperation Rate",
-			"yextractor" : "cooperation rate total total"
-		},
-		{
-			"plotName" : "Intragroup Cooperation Rate",
-			"yextractor" : "cooperation rate intragroup total"
-		}
-	],
+
 	"repeats" : 5
 	
 }

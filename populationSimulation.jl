@@ -171,8 +171,8 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 				cooperationRate[population[a].stratNumber,2] += 1 
 
 				#total coop rate calculation
-				cooperationRate[4,1] = agentAction + cooperationRate[4,1]
-				cooperationRate[4,2] = 1 + cooperationRate[4,2]
+				cooperationRate[4,1] += agentAction
+				cooperationRate[4,2] += 1.0
 
 				if population[a].type != population[adversaryID].type
 					cooperationRate[5,1] += agentAction
