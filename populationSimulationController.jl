@@ -7,7 +7,7 @@ addprocs(9)
 @everywhere include("populationSimulation.jl")
 
 function envArrayToDict(array)
-	keyList = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
+	keyList = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost", "intergroupUpdateP"]
 	return Dict(keyList[i] => array[i] for i in 1:length(keyList))
 end
 

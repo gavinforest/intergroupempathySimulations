@@ -450,8 +450,9 @@ def makeFig3():
 
 def singleParameterRun():
 
-	paramChanges = paramVariabilitySets = {"norm": STERNJUDGING,
-								"empathy": EMPATHYTEMPLATES["unilateral01"], "ustrat": 0.0005, "numGenerations":20000}
+	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
+								"empathy": EMPATHYTEMPLATES["unilateral01"], "ustrat": 0.0005, "numGenerations":50000,
+								"intergroupUpdateP" : 0.0}
 
 	for key in paramVariabilitySets.keys():
 		paramChanges[key] = [paramChanges[key]]

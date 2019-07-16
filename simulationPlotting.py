@@ -18,7 +18,7 @@ def searchstats(plotParam, Stats):
 	stats = [s[0] for s in Stats]
 	for name in plotParam.keys():
 		if name == "norm":
-			stats = [stat for stat in stats if normToAbbreviation(stats.norm) == plotParam["norm"]]
+			stats = [stat for stat in stats if normToAbbreviation(stat.norm) == plotParam["norm"]]
 		elif name == "empathy":
 			empathyMatcher = lambda x: np.array_equal(x, plotParam["empathy"])
 			stats = [stat for stat in stats if empathyMatcher(stat.empathy)]

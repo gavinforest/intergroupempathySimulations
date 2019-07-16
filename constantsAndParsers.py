@@ -9,7 +9,7 @@ PROGRESSVERBOSE = True
 TEST = True
 
 defaultPopNames = ["numAgents", "numGenerations"]
-defaultEnvNames = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost"]
+defaultEnvNames = ["Ecoop", "Eobs", "ustrat", "u01", "u10", "w", "gameBenefit", "gameCost", "intergroupUpdateP"]
 
 def popToArray(x):
 	keys = defaultPopNames
@@ -47,7 +47,7 @@ def normToAbbreviation(norm, namer = lambda x: "Unknown Name Norm"):
 
 defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 5000}
 defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
-					"gameBenefit" : 5.0, "gameCost" : 1.0}
+					"gameBenefit" : 5.0, "gameCost" : 1.0, "intergroupUpdateP" : 0.5}
 defaultNorm = np.copy(SIMPLESTANDING)
 defaultEmpathy = np.zeros((2,2), dtype="float64")
 

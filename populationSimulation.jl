@@ -109,10 +109,14 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	gameBenefit::Float64
 	gameCost = environmentParameters["gameCost"]
 	gameCost:: Float64
+	intergroupUpdateP = environmentParameters["intergroupUpdateP"]
+	intergroupUpdateP::Float64
 
 
 	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
 
+
+	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
 	population = [makeAgent(i % 2, i, rand([1,2,3]), empathyMatrix) for i in 1:NUMAGENTS]
 
 	# println("empathy matrix: $empathyMatrix")
@@ -191,11 +195,26 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 		reputations = reputations + reputationUpdates
 
-		#imitation update 
+		#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
+		#creation of population. Beware changing that.
 		ind1 = rand(0:(NUMAGENTS-1))
 		ind2 = (ind1 + rand(1:(NUMAGENTS-1))) % NUMAGENTS
+
+		inter = rand() < intergroupUpdateP
+
+		if (ind2 - ind1) %2 == 0 && inter
+			ind2 = (ind2 + 1) % NUMAGENTS
+		elseif (ind2 - ind1) %2 == 1 && !inter
+			ind2 = (ind2 + 1) % NUMAGENTS
+			if ind1 == ind2
+				ind2 = (ind2 + 2) % NUMAGENTS
+			end
+		end
+			
 		ind1 += 1
 		ind2 += 1
+
+
 
 		pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
 		if rand() < pCopy
