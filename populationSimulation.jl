@@ -128,7 +128,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
 		reputationUpdates = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
-		cooperationRate = LinearAlgebra.zeros(Float64, 5, 2)
+		cooperationRate = LinearAlgebra.zeros(Float64, 6, 2)
 
 		for j in 1:NUMAGENTS
 
@@ -177,6 +177,9 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 				if population[a].type != population[adversaryID].type
 					cooperationRate[5,1] += agentAction
 					cooperationRate[5,2] += 1.0
+				else
+					cooperationRate[6,1] += agentAction
+					cooperationRate[6,2] += 1.0
 				end
 
 			end

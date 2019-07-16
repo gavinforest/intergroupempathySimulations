@@ -34,6 +34,15 @@ class cooperationRateTInter(object):
 	def __call__(self,statObj):
 		return np.average([statDict["cooperationRate"]["intergroup"] for statDict in statObj.statisticsList])
 
+
+class cooperationRateTIntra(object):
+	def __init__(self):
+		self.name = "cooperation rate intragroup total"
+		self.type = "full"
+
+	def __call__(self,statObj):
+		return np.average([statDict["cooperationRate"]["intragroup"] for statDict in statObj.statisticsList])
+
 class simpleEmpathy(object):
 	def __init__(self):
 		self.name = "simple empathy"
@@ -61,9 +70,8 @@ class simpleIntergroupEmpathy(object):
 		empMatrix = statObj.empathy
 		return (empMatrix[0,1] + empMatrix[1,0]) / 2.0
 
+extractorList = [generations(), cooperationRateTT(), simpleEmpathy(), cooperationRateTG(), simpleEmpathyType1(), 
+				simpleIntergroupEmpathy(), cooperationRateTInter(), cooperationRateTIntra()]
 
 
-extractors = {"generations": generations(), "cooperation rate total total" : cooperationRateTT(),
-			 "simple empathy" : simpleEmpathy(), "cooperation rate total generational" : cooperationRateTG(),
-			 "simple empathy type1" : simpleEmpathyType1(), "simple intergroup empathy" : simpleIntergroupEmpathy(),
-			 "cooperation rate intergroup total": cooperationRateTInter()}
+extractors = {obj.name : obj for obj in extractorList}

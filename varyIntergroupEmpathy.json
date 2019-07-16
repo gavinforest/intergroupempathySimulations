@@ -1,6 +1,7 @@
 {
 	"plots": [
 		{"ustrat" : 0.0025, "plotName" : "Intergoup Cooperation Rate"},
+		{"ustrat" : 0.0025, "plotName" : "Intragoup Cooperation Rate"}
 		{"ustrat" : 0.0025, "plotName" : "Total Cooperation Rate"}
 	],
 	"variabilitySets" :
@@ -18,6 +19,10 @@
 		{
 			"plotName": "Total Cooperation Rate",
 			"yextractor" : "cooperation rate total total"
+		},
+		{
+			"plotName" : "Intragroup Cooperation Rate",
+			"yextractor" : "cooperation rate intragroup total"
 		}
 	],
 	"repeats" : 5

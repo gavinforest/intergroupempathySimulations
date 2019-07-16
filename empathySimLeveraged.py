@@ -135,7 +135,7 @@ def plotComprehensive(stats, headerString = ""):
 	lineFormats = {}
 	for thing in ["color", "linestyle"]:
 		lineFormats[thing] = {}
-		for strat in strats + ["total", "intergroup"]:
+		for strat in strats + ["total", "intergroup", "intragroup"]:
 			lineFormats[thing][strat] = {}
 
 	lineFormats["color"]["ALLC"]["direct"] = "green"
@@ -148,9 +148,11 @@ def plotComprehensive(stats, headerString = ""):
 	lineFormats["color"]["total"]["direct"] = "grey"
 	lineFormats["color"]["intergroup"]["average"] = "violet"
 	lineFormats["color"]["intergroup"]["direct"] = "darkviolet"
+	lineFormats["color"]["intragroup"]["average"] = "lightpink"
+	lineFormats["color"]["intragroup"]["direct"] = "pink"
 
 
-	for thing in strats + ["total", "intergroup"]:
+	for thing in strats + ["total", "intergroup", "intragroup"]:
 		lineFormats["linestyle"][thing]["average"] = "dashed"
 		lineFormats["linestyle"][thing]["direct"] = "solid"
 
@@ -170,7 +172,7 @@ def plotComprehensive(stats, headerString = ""):
 	plt.xlabel("Generations")
 	plt.ylabel("Cooperation Rate")
 
-	for thing in strats + ["total", "intergroup"]:
+	for thing in strats + ["total", "intergroup", "intragroup"]:
 
 		plt.plot(plotDict["coops"][thing], color=lineFormats["color"][thing]["direct"], 
 											linestyle = lineFormats["linestyle"][thing]["direct"],
@@ -275,7 +277,8 @@ def juliaOutputToStatisticsObject(output, argTuple):
 			for k, tTo in enumerate(strats):
 				reputationDict["viewsFromTo"][vFrom][tTo] = repM[j,k]
 
-		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], "intergroup":coopM[4,0]}
+		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], "intergroup":coopM[4,0],
+							"intragroup" : coopM[5,0]}
 
 		stat = {}
 		stat["proportions"] = proportionDict

@@ -72,7 +72,7 @@ def createPlotable(statObject):
 				plotAbleDict["freqs"][typ][strat].append(1.0 * entry["proportions"][typ][strat] / entry["proportions"][typ]["total"])
 
 	allCoops = [entry["cooperationRate"]  for entry in statObject.statisticsList]
-	for name in strats + ["total", "intergroup"]:
+	for name in strats + ["total", "intergroup", "intragroup"]:
 		plotAbleDict["coops"][name] = [entry[name] for entry in allCoops]
 
 
