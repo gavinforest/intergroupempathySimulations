@@ -176,7 +176,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 				if population[a].type != population[adversaryID].type
 					cooperationRate[5,1] += agentAction
-					cooperationRate[5,2] += 1
+					cooperationRate[5,2] += 1.0
 				end
 
 			end

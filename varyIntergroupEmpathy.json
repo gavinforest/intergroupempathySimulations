@@ -4,10 +4,10 @@
 		{"ustrat" : 0.0025, "plotName" : "Total Cooperation Rate"}
 	],
 	"variabilitySets" :
-		{ "empathy" : ["genEmpathies 6 intergroupGrow"], 
+		{ "empathy" : ["genEmpathies 12 intergroupGrow"], 
 							"norm" : ["SJ"],
 							"ustrat" : [0.0025],
-							"numGenerations" : [5000]
+							"numGenerations" : [100000]
 		},
 		
 	"defaults" : {

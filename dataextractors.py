@@ -34,7 +34,6 @@ class cooperationRateTInter(object):
 	def __call__(self,statObj):
 		return np.average([statDict["cooperationRate"]["intergroup"] for statDict in statObj.statisticsList])
 
-
 class simpleEmpathy(object):
 	def __init__(self):
 		self.name = "simple empathy"
