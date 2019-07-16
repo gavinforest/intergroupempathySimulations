@@ -128,7 +128,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
 		reputationUpdates = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
-		cooperationRate = LinearAlgebra.zeros(Float64, 4, 2)
+		cooperationRate = LinearAlgebra.zeros(Float64, 5, 2)
 
 		for j in 1:NUMAGENTS
 
@@ -173,6 +173,11 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 				#total coop rate calculation
 				cooperationRate[4,1] = agentAction + cooperationRate[4,1]
 				cooperationRate[4,2] = 1 + cooperationRate[4,2]
+
+				if population[a].type != population[adversaryID].type
+					cooperationRate[5,1] += agentAction
+					cooperationRate[5,2] += 1
+				end
 
 			end
 		end

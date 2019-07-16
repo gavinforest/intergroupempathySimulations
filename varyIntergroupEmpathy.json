@@ -1,0 +1,25 @@
+{
+	"plots": [
+		{"ustrat" : 0.0025, "plotName" : "Intergoup Cooperation Rate"},
+		{"ustrat" : 0.0025, "plotName" : "Total Cooperation Rate"}
+	],
+	"variabilitySets" :
+		{ "empathy" : ["genEmpathies 6 intergroupGrow"], 
+							"norm" : ["SJ"],
+							"ustrat" : [0.0025],
+							"numGenerations" : [5000]
+		},
+		
+	"defaults" : {
+		"xextractor" : "simple intergroup empathy",
+		"yextractor" : "cooperation rate intergroup total"
+	},
+	"extractors" : [ 
+		{
+			"plotName": "Total Cooperation Rate",
+			"yextractor" : "cooperation rate total total"
+		}
+	],
+	"repeats" : 5
+	
+}

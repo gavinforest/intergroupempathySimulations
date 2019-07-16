@@ -135,7 +135,7 @@ def plotComprehensive(stats, headerString = ""):
 	lineFormats = {}
 	for thing in ["color", "linestyle"]:
 		lineFormats[thing] = {}
-		for strat in strats + ["total"]:
+		for strat in strats + ["total", "intergroup"]:
 			lineFormats[thing][strat] = {}
 
 	lineFormats["color"]["ALLC"]["direct"] = "green"
@@ -146,9 +146,11 @@ def plotComprehensive(stats, headerString = ""):
 	lineFormats["color"]["ALLD"]["average"] = "lightcoral"
 	lineFormats["color"]["total"]["average"] = "grey"
 	lineFormats["color"]["total"]["direct"] = "grey"
+	lineFormats["color"]["intergroup"]["average"] = "violet"
+	lineFormats["color"]["intergroup"]["direct"] = "darkviolet"
 
 
-	for thing in strats + ["total"]:
+	for thing in strats + ["total", "intergroup"]:
 		lineFormats["linestyle"][thing]["average"] = "dashed"
 		lineFormats["linestyle"][thing]["direct"] = "solid"
 
@@ -168,7 +170,7 @@ def plotComprehensive(stats, headerString = ""):
 	plt.xlabel("Generations")
 	plt.ylabel("Cooperation Rate")
 
-	for thing in strats + ["total"]:
+	for thing in strats + ["total", "intergroup"]:
 
 		plt.plot(plotDict["coops"][thing], color=lineFormats["color"][thing]["direct"], 
 											linestyle = lineFormats["linestyle"][thing]["direct"],
@@ -273,7 +275,7 @@ def juliaOutputToStatisticsObject(output, argTuple):
 			for k, tTo in enumerate(strats):
 				reputationDict["viewsFromTo"][vFrom][tTo] = repM[j,k]
 
-		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0]}
+		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], "intergroup":coopM[4,0]}
 
 		stat = {}
 		stat["proportions"] = proportionDict
@@ -443,12 +445,10 @@ def makeFig3():
 
 # def investigateTimeScale(paramVariabilitySets):
 
-
-
 def singleParameterRun():
 
-	paramChanges = paramVariabilitySets = {"norm": SIMPLESTANDING,
-								"empathy": EMPATHYTEMPLATES["egalitarian"], "ustrat": 0.0005, "numGenerations":20000}
+	paramChanges = paramVariabilitySets = {"norm": STERNJUDGING,
+								"empathy": EMPATHYTEMPLATES["unilateral01"], "ustrat": 0.0005, "numGenerations":20000}
 
 	for key in paramVariabilitySets.keys():
 		paramChanges[key] = [paramChanges[key]]

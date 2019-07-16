@@ -4,7 +4,7 @@
 		{"ustrat" : 0.0025, "plotName" : "u = 0.0025"}
 	],
 	"variabilitySets" :
-		{ "empathy" : ["genEmpathies 6 unilateral01GrowEven"], 
+		{ "empathy" : ["genEmpathies 3 unilateral01GrowEven max 0.4"], 
 							"norm" : ["SJ"],
 							"ustrat" : [0.0005, 0.0025],
 							"numGenerations" : [100000]
@@ -16,6 +16,6 @@
 	},
 	"extractors" : [
 	],
-	"repeats" : 10
+	"repeats" : 3
 	
 }

@@ -72,7 +72,7 @@ def createPlotable(statObject):
 				plotAbleDict["freqs"][typ][strat].append(1.0 * entry["proportions"][typ][strat] / entry["proportions"][typ]["total"])
 
 	allCoops = [entry["cooperationRate"]  for entry in statObject.statisticsList]
-	for name in strats + ["total"]:
+	for name in strats + ["total", "intergroup"]:
 		plotAbleDict["coops"][name] = [entry[name] for entry in allCoops]
 
 
@@ -111,12 +111,19 @@ def createPlotable(statObject):
 
 # ----------------------------- Constants for naming complicated things in parameter Json ---------------------------
 EMPATHYTEMPLATES = {"unilateral01" : np.array([[1,1],[0,0]], dtype = "float64"), "egalitarian" : np.ones((2,2), dtype="float64"),
-					"unilateral10" : np.array([[0,0],[1,1]], dtype = "float64")}
+					"unilateral10" : np.array([[0,0],[1,1]], dtype = "float64"), "shunning" : np.array([[1,0],[0,1]], dtype = "float64")}
 
 def genEmpathies(command):
 	commandList = command.split(" ")
 	number = int(commandList[1])
 	typ = commandList[2]
+
+	maximumE = 1.0
+	if len(commandList) > 3:
+		setting = commandList[3]
+		if setting == "max":
+			maximumE =  float(commandList[4])
+
 
 	empathyList = []
 
@@ -124,9 +131,15 @@ def genEmpathies(command):
 		base = EMPATHYTEMPLATES["unilateral01"]
 
 		added = EMPATHYTEMPLATES["unilateral10"]
-		for i in range(number):
-			empathyList.append(base + added * (i / (number - 1.0)))
 
+	elif typ == "intergroupGrow":
+		base = EMPATHYTEMPLATES["shunning"]
+
+		added = np.array([[0,1],[1,0]], dtype="float64")
+
+	
+	for i in range(number):
+			empathyList.append(base + added * maximumE * (i / (number - 1.0)))
 
 	return empathyList
 
