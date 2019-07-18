@@ -48,21 +48,38 @@ function moveError(move, ec)
 	end
 end
 
-function generateStatistics!(statList, population, reputations, generation, cooperationRateArray, roundPayoffs)
+function typeStratToNum(tup)
+	(type, stratNumber) = tup
+	return 3 * type + stratNumber - 1 #-1 from stratNumber being in [1,2,3]
+end
+
+# function typeStratDoubleToNum(firstTup, secondTup)
+# 	(firstType, firstStratNumber) = firstTup
+# 	(secondType, secondStratNumber) = secondTup
+# 	return 6 * typeStratToNum((firstType, firstStratNumber)) + typeStratToNum((secondType, secondStratNumber))
+# end
+
+function generateStatistics!(statList, population, reputations, generation, cooperationRateArray, cooperationRateDetailedArray, roundPayoffs)
 	typeProportions = LinearAlgebra.zeros(Float64, 2, 4)
-	repStats = LinearAlgebra.zeros(Float64, 3,3)
-	repStatsDenoms = LinearAlgebra.zeros(Float64, 3,3)
-	payoffsByStrat = LinearAlgebra.zeros(Float64, 3, 1)
+	repStats = LinearAlgebra.zeros(Float64, 6,6)
+	repStatsDenoms = LinearAlgebra.zeros(Float64, 6,6)
+	payoffsByTypeStrat = LinearAlgebra.zeros(Float64, 6, 1)
 
 	for j in 1:length(population)
+		jnum = typeStratToNum(population[j].type, population[j].stratNumber) + 1
+
+
 		typeProportions[(population[j].type + 1), population[j].stratNumber] += 1.0 
 		typeProportions[(population[j].type + 1), 4] += 1.0 
 
-		payoffsByStrat[population[j].stratNumber] += roundPayoffs[j]
+		payoffsByTypeStrat[jnum] += roundPayoffs[j]
 
 		for k in 1:length(population)
-			repStats[population[j].stratNumber, population[k].stratNumber] += reputations[j,k] * 1.0 
-			repStatsDenoms[population[j].stratNumber, population[k].stratNumber] += 1.0 
+			knum = typeStratToNum(population[k].type, population[k].stratNumber) + 1
+
+			repStats[jnum, knum] += reputations[j,k] * 1.0 
+			repStatsDenoms[jnum, knum] += 1.0 
+
 		end
 
 	end
@@ -77,7 +94,8 @@ function generateStatistics!(statList, population, reputations, generation, coop
 	statList[generation]["proportions"] = typeProportions
 	statList[generation]["reputationsViewFromTo"] = repStats
 	statList[generation]["cooperationRate"] = cooperationRateArray
-	statList[generation]["roundPayoffs"] = payoffsByStrat
+	statList[generation]["cooperationRateDetailed"] = cooperationRateDetailedArray[:,:,1]
+	statList[generation]["roundPayoffs"] = payoffsByTypeStrat
 
 	return statList
 
@@ -135,7 +153,8 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
 		reputationUpdates = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
-		cooperationRate = LinearAlgebra.zeros(Float64, 6, 2)
+		cooperationRate = LinearAlgebra.zeros(Float64, 9, 2)
+		cooperationRateDetailed = LinearAlgebra.zeros(Float64, 6,6,2)
 
 		for j in 1:NUMAGENTS
 			#judges
@@ -185,20 +204,32 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 				cooperationRate[4,1] += agentAction
 				cooperationRate[4,2] += 1.0
 
-				if population[a].type != population[adversaryID].type
-					cooperationRate[5,1] += agentAction
-					cooperationRate[5,2] += 1.0
-				else
-					cooperationRate[6,1] += agentAction
-					cooperationRate[6,2] += 1.0
+				#type specific coop rate calculation
+				binaryIndex = 2 * population[a].type + population[adversaryID].type
+
+				coopertionRate[5 + binaryIndex,1] += agentAction
+				cooperationRate[5 + binaryIndex, 2] += 1.0
+
+				#total intergroup coop rate calculation (difficult to calculate from above given stochastic pairing)
+				if binaryIndex == 1 || binaryIndex == 2
+					cooperationRate[9,1] += agentAction
+					cooperationRate[9,2] += 1.0
 				end
+
+				#detailed (type,strat) -> (type,strat) cooperation rate 
+				anum = typeStratToNum((population[a].type, population[a].stratNumber))
+				advnum = typeStratToNum((population[adversaryID].type, population[adversaryID].stratNumber))
+				cooperationRateDetailed[anum, advnum, 1] += agentAction
+				cooperationRateDetailed[anum,advnum, 2] += 1.0 
+
 
 			end
 		end
 
 		cooperationRate[:,1] = cooperationRate[:,1] ./ cooperationRate[:,2]
+		cooperationRateDetailed[:,:,1] = cooperationRate[:,:,1] ./ cooperationRate[:,:,2]
 
-		statistics = generateStatistics!(statistics, population, reputations, i, cooperationRate, roundPayoffs)
+		statistics = generateStatistics!(statistics, population, reputations, i, cooperationRate,cooperationRateDetailed, roundPayoffs)
 
 		reputations = reputations + reputationUpdates
 

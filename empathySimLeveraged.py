@@ -35,91 +35,6 @@ class populationStatistics:
 		self.empathy = argTuple[4]
 		self.wholeArgTuple = argTuple
 
-	def generateStatistics(self, population, reputations, generation, cooperationRateD):
-
-		if DEBUG:
-			print("--- generating statistics for generation: " + str(generation))
-
-
-
-		#TYPE PROPORTION STATISTICS
-
-		type0 = [agent for agent in population if agent.type == 0]
-		type1 = [agent for agent in population if agent.type == 1]
-
-		TotalType0 = len(type0)
-		TotalType1 = len(type1)
-
-
-		ALLCType0 =0
-		DISCType0 = 0
-		ALLDType0 = 0
-
-		for agent in type0:
-			if np.array_equal(agent.strategy, ALLC):
-				ALLCType0 += 1
-			elif np.array_equal(agent.strategy, ALLD):
-				ALLDType0 += 1
-			else:
-				DISCType0 += 1
-
-
-		ALLCType1 = 0
-		DISCType1 = 0
-		ALLDType1 = 0
-
-		for agent in type1:
-			if np.array_equal(agent.strategy, ALLC):
-				ALLCType1 +=1
-			elif np.array_equal(agent.strategy, ALLD):
-				ALLDType1 += 1
-			else:
-				DISCType1 += 1
-
-		statistics = {"type0": {"total": TotalType0, "ALLC": ALLCType0, "DISC": DISCType0, "ALLD": ALLDType0},
-												"type1": {"total": TotalType1, "ALLC": ALLCType1, "DISC": DISCType1, "ALLD": ALLDType1}}
-
-		if self.statisticsList[generation] is not None:
-			self.statisticsList[generation]["proportions"] = statistics
-
-		else:
-			self.statisticsList[generation] = {}
-			self.statisticsList[generation]["proportions"] = statistics
-
-
-		repStats = {}
-
-		# typeStratPairPointers = [(agent.type, stratToString(agent.strategy)) for agent in population]
-		# typeStratPairTargets = [None for i in range(NUMAGENTS)]
-		# for agent in population:
-		# 	typeStratPairTargets[agent.ID] = (agent.type, stratToString(agent.strategy))
-
-		stratStringsByID = [None for agent in population]
-		for agent in population:
-			stratStringsByID[agent.ID] = stratToString(agent.strategy)
-
-		repStats["viewsFromTo"] = {}
-
-		strats = ["ALLC", "DISC", "ALLD"]
-		for stratType in strats:
-			repStats["viewsFromTo"][stratType] = {}
-
-			for strat in strats:
-				repStats["viewsFromTo"][stratType][strat] = []
-			
-			for agent in population:
-				for i, strat in enumerate(stratStringsByID):
-					repStats["viewsFromTo"][stratType][strat].append(reputations[agent.ID, i])
-
-			for strat in strats:
-				repStats["viewsFromTo"][stratType][strat] = np.average(repStats["viewsFromTo"][stratType][strat])
-
-		self.statisticsList[generation]["reputations"] = repStats
-
-		self.statisticsList[generation]["cooperationRate"] = cooperationRateD
-			
-
-
 	def plotTypes(self):
 		type0popSequence = [stat["proportions"]["type0"]["total"] for stat in statistics.statisticsList]
 		type1popSequence = [stat["proportions"]["type1"]["total"] for stat in statistics.statisticsList]
@@ -281,8 +196,9 @@ def juliaOutputToStatisticsObject(output, argTuple):
 			for k, tTo in enumerate(strats):
 				reputationDict["viewsFromTo"][vFrom][tTo] = repM[j,k]
 
-		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], "intergroup":coopM[4,0],
-							"intragroup" : coopM[5,0]}
+		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], 
+							"intragroup0":coopM[4,0],	"intergroup0->1" : coopM[5,0], "intergroup1->0" : coopM[6,0],
+							"intragroup1" : coopM[7,0], "intergroup" : coopM[8,0]}
 
 		stat = {}
 		stat["proportions"] = proportionDict
