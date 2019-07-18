@@ -1,7 +1,7 @@
 import Distributed
 using Distributed
 
-addprocs(9)
+addprocs(5)
 
 @everywhere import LinearAlgebra
 @everywhere include("populationSimulation.jl")
@@ -19,7 +19,7 @@ end
 
 
 function evolveDistributed(parameterTuples, printing)
-	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4]) for x in parameterTuples]
+	parameterTuples = [(popArrayToDict(x[1]), envArrayToDict(x[2]), x[3], x[4], x[5]) for x in parameterTuples]
 	# println("Julia got parameter tuples: $parameterTuples" )
 	return Distributed.pmap(enumerate(parameterTuples)) do tup
 		ind = tup[1]

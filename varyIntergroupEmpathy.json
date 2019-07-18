@@ -22,10 +22,10 @@
 		}
 	],
 	"variabilitySets" :
-		{ "empathy" : ["genEmpathies 12 intergroupGrow "], 
-							"norm" : ["SJ"],
+		{ "empathy" : ["genEmpathies 6 intergroupGrow "], 
+							"norm" : [["SS", "SJ"]],
 							"ustrat" : [0.0025],
-							"numGenerations" : [100000],
+							"numGenerations" : [100],
 							"intergroupUpdateP" : [0.0]
 		},
 		

@@ -44,9 +44,9 @@
 	],
 	"variabilitySets" :
 		{ "empathy" : ["genEmpathies 6 intergroupGrow "], 
-							"norm" : ["SJ", "SS"],
+							"norm" : ["SJ"],
 							"ustrat" : [0.0025],
-							"numGenerations" : [100000],
+							"numGenerations" : [5000],
 							"intergroupUpdateP" : [0.0]
 		},
 		

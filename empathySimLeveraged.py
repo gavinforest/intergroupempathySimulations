@@ -9,6 +9,9 @@ import sys
 import argparse
 import julia
 import simulationPlotting as simPlot
+import pickle
+import os
+
 J = julia.Julia()
 juliaSim = J.include('populationSimulationController.jl')
 print("PyJulia has nprocs: " + str(J.nprocs()))
@@ -28,8 +31,9 @@ class populationStatistics:
 		self.numGenerations = numGenerations
 		self.popParams = arrayToPop(argTuple[0])
 		self.envParams = arrayToEnv(argTuple[1])
-		self.norm = argTuple[2]
-		self.empathy = argTuple[3]
+		self.norm = (argTuple[2], argTuple[3])
+		self.empathy = argTuple[4]
+		self.wholeArgTuple = argTuple
 
 	def generateStatistics(self, population, reputations, generation, cooperationRateD):
 
@@ -320,7 +324,12 @@ def generateParameterTuples(parameterVariabilitySets, repeats):
 			elif key in envParams:
 				envParams[key] = item
 			elif key == "norm":
-				norm = item
+
+				if type(item) != tuple:
+					norm = (item, item)
+				else:
+					norm = item
+
 			elif key == "empathy":
 				empathy = item
 
@@ -328,21 +337,38 @@ def generateParameterTuples(parameterVariabilitySets, repeats):
 				print("*bad key in generateParameterTuples: " + str(key))
 
 		for j in range(repeats):
-			finalTuples.append((popToArray(popParams),envToArray(envParams), norm, empathy))
+			finalTuples.append((popToArray(popParams),envToArray(envParams), norm[0], norm[1], empathy))
 	combos = list(itr.chain.from_iterable([[combo] * repeats for combo in combos]))
 	print("Length of combos list is " + str(len(combos)))
 	print("Length of final tuples list is " + str(len(finalTuples)))
 
 	return finalTuples, combos
 
-def farm(parameterVariabilitySets, printing, repeats = 1):
+def farm(parameterVariabilitySets, printing, caching = True, repeats = 1):
 	# if type(parameterVariabilitySets) is dict:
 	argumentTuples, variedValues = generateParameterTuples(parameterVariabilitySets, repeats)
 	# else:
 
 
 	statsList = J.evolveDistributed(argumentTuples,printing)
-	statsObjs = [juliaOutputToStatisticsObject(obj,argTuple) for obj, argTuple in zip(statsList, argumentTuples)]
+	statsObjs = []
+	for obj, argTuple in zip(statsList, argumentTuples): 
+		statsObjs.append(juliaOutputToStatisticsObject(obj,argTuple))
+		if printing:
+			print("converted an output to statistics object")
+
+		if caching:
+			fnameBase = "".join(str(time.time()).split("."))
+			fnameStat = "pickles/" + fnameBase + "statobject.pkl"
+			fnameArgTuple = "pickles/" + fnameBase + "argTuple.pkl"
+			with open(fnameStat, "wb") as f:
+				pickle.dump(statsObjs[-1], f)
+			with open(fnameArgTuple, "wb") as f:
+				pickle.dump(argTuple, f)
+
+
+
+
 
 	if DEBUG:
 		print("in farm --- statsObjs: " + str(statsObjs))
@@ -391,7 +417,7 @@ def makeFig3():
 		if ustrat not in plotDict:
 			plotDict[ustrat] = {}
 
-		normName = normToAbbreviation(d["norm"])
+		normName = normToAbbreviation(d["norm"][0])
 		if normName not in plotDict[ustrat]:
 			plotDict[ustrat][normName] = {}
 			plotDict[ustrat][normName]["empathy"] = []
@@ -467,7 +493,7 @@ def singleParameterRun():
 
 
 
-def runFromJson(filename, printing, save):
+def runFromJson(filename, printing, save, caching):
 	with open(filename) as f:
 		paramObject = json.load(f)
 
@@ -483,7 +509,7 @@ def runFromJson(filename, printing, save):
 		repeats = paramObject["repeats"]
 
 
-	zipped = farm(variabilitySets, printing, repeats)
+	zipped = farm(variabilitySets, printing, caching, repeats)
 
 
 	simPlot.generalPlotter(paramObject, zipped, printing, save)
@@ -498,6 +524,7 @@ parser.add_argument("-i", "--input", type = str, help="parameter input json file
 parser.add_argument("-v", "--verbose", action="store_true")
 parser.add_argument("function", help="", choices=["fig3", "singlerun", "json"])
 parser.add_argument("-s", "--save", action="store_true")
+parser.add_argument("-c", "--cache", action="store_true")
 args = parser.parse_args()
 
 if len(sys.argv) > 1:
@@ -506,7 +533,7 @@ if len(sys.argv) > 1:
 	elif args.function == "singlerun":
 		singleParameterRun()
 	else:
-		runFromJson(args.input, args.verbose, args.save)
+		runFromJson(args.input, args.verbose, args.save, args.cache)
 
 
 

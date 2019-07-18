@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import json
 import time
+import operator
 
 from constantsAndParsers import *
 from dataextractors import *
@@ -18,7 +19,10 @@ def searchstats(plotParam, Stats):
 	stats = [s[0] for s in Stats]
 	for name in plotParam.keys():
 		if name == "norm":
-			stats = [stat for stat in stats if normToAbbreviation(stat.norm) == plotParam["norm"]]
+			if type(plotParam["norm"]) == list:
+				stats = [stat for stat in stats if list(map(normToAbbreviation, stat.norm)) == plotParam["norm"]]
+			elif type(plotParam["norm"]) == str:
+				stats = [stat for stat in stats if foldl(operator.and_, True, map(lambda x: normToAbbreviation(x) == plotParam["norm"], stat.norm))]
 		elif name == "empathy":
 			empathyMatcher = lambda x: np.array_equal(x, plotParam["empathy"])
 			stats = [stat for stat in stats if empathyMatcher(stat.empathy)]

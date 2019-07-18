@@ -84,33 +84,35 @@ function generateStatistics!(statList, population, reputations, generation, coop
 end
 
 
-function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm::Array{Int,2},empathyMatrix::Array{Float64,2}, printing::Bool)::Array{Dict{String, Array{Float64, 2}}, 1}
+function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm0::Array{Int,2}, norm1::Array{Int,2},empathyMatrix::Array{Float64,2}, printing::Bool)::Array{Dict{String, Array{Float64, 2}}, 1}
 	PROGRESSVERBOSE = printing
 
 	NUMAGENTS = populationParameters["numAgents"]
 	NUMAGENTS::Int
 	NUMGENERATIONS = populationParameters["numGenerations"]
 	NUMGENERATIONS::Int
-	NORM = norm
+	NORM0 = norm0 #norm that type 0 individuals use
+	NORM1 = norm1 #norm that type 1 individuals use
+	NORMS = [NORM0, NORM1]
 
 	Eobs = environmentParameters["Eobs"]
-	Eobs::Float64
+	Eobs::Float64 #Observeration Error Rate. Effects judging
 	Ecoop = environmentParameters["Ecoop"]
-	Ecoop::Float64
+	Ecoop::Float64 #Cooperation Error Rate. Effects actions
 	w = environmentParameters["w"]
-	w::Float64
+	w::Float64 #selection strength
 	ustrat = environmentParameters["ustrat"]
-	ustrat::Float64
+	ustrat::Float64 #random drift in strategy
 	u01 = environmentParameters["u01"]
-	u01::Float64
+	u01::Float64 #type mutation rate 0 -> 1
 	u10 = environmentParameters["u10"]
-	u10::Float64
+	u10::Float64 #type mutation rate 1 -> 0
 	gameBenefit = environmentParameters["gameBenefit"]
 	gameBenefit::Float64
 	gameCost = environmentParameters["gameCost"]
 	gameCost:: Float64
 	intergroupUpdateP = environmentParameters["intergroupUpdateP"]
-	intergroupUpdateP::Float64
+	intergroupUpdateP::Float64 #probability that the target individual to imitate is from the other group
 
 
 	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
@@ -118,10 +120,11 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
 	population = [makeAgent(i % 2, i, rand([1,2,3]), empathyMatrix) for i in 1:NUMAGENTS]
+	# arguments are: type, ID, strategy number, empathy
 
 	# println("empathy matrix: $empathyMatrix")
 
-	reputations = rand([0,1], NUMAGENTS, NUMAGENTS) #Might want to make this randomly generated
+	reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 	# reputations = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
 	statistics = [ Dict{String, Array{Float64, 2}}() for i in 1:NUMGENERATIONS]
@@ -135,10 +138,13 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 		cooperationRate = LinearAlgebra.zeros(Float64, 6, 2)
 
 		for j in 1:NUMAGENTS
+			#judges
 
 			for a in 1:NUMAGENTS
+				#agents
 
 				adversaryID = rand((a+1):(a + NUMAGENTS - 1)) % NUMAGENTS + 1
+				#randomly selected but agents never have to play themselves.
 
 				adversaryRep = reputations[a, adversaryID]
 
@@ -150,14 +156,15 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 				roundPayoffs[a] += agentPayoff
 				roundPayoffs[adversaryID] += adversaryPayoff
 
-
+				judgetype = population[j].type
+				
 				oldrep = reputations[j,a]
-				local newrep
+				newrep = 0 #just to initialize variable
 
 				if rand() < population[j].empathy[population[a].type + 1]
-					newrep = NORM[agentAction + 1, adversaryRep + 1]
+					newrep = NORMS[judgetype+1][agentAction + 1, adversaryRep + 1]
 				else
-					newrep = NORM[agentAction+1, reputations[j,adversaryID] + 1]
+					newrep = NORMS[judgetype+1][agentAction+1, reputations[j,adversaryID] + 1]
 				end
 
 				if rand()<Eobs
@@ -227,7 +234,7 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 			println("--- simulated generation")
 		end
 
-
+		#random drift applied uniformly to all individuals
 		stratNames = ["ALLD","DISC","ALLC"]
 		for j in 1:NUMAGENTS
 			if rand() < ustrat

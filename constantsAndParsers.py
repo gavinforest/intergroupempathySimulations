@@ -48,7 +48,7 @@ def normToAbbreviation(norm, namer = lambda x: "Unknown Name Norm"):
 defaultPopulationParameters = {"numAgents" : 100, "numGenerations" : 5000}
 defaultEnvironmentParameters = {"Ecoop" : 0.02, "Eobs" : 0.02, "ustrat" : 0.001, "u01" : 0.0, "u10" : 0.0, "w" : 1.0,
 					"gameBenefit" : 5.0, "gameCost" : 1.0, "intergroupUpdateP" : 0.5}
-defaultNorm = np.copy(SIMPLESTANDING)
+defaultNorm = (np.copy(SIMPLESTANDING), np.copy(SIMPLESTANDING))
 defaultEmpathy = np.zeros((2,2), dtype="float64")
 
 defaultEmpathyLevels = [np.ones((2,2), dtype="float64") * (i / 5.0) for i in range(6)]
@@ -149,7 +149,15 @@ def genEmpathies(command):
 
 def jsonVariabilitySetParser(dicty):
 	if "norm" in dicty:
-		dicty["norm"] = [abbreviationToNorm[name] for name in dicty["norm"]]
+		newNorms = []
+		for name in dicty["norm"]:
+			if type(name) == str:
+				norm = abbreviationToNorm[name]
+				newNorms.append((norm, norm))
+			else:
+				newNorms.append((abbreviationToNorm[name[0]], abbreviationToNorm[name[1]]))
+
+		dicty["norm"] = newNorms
 	if "empathy" in dicty:
 		empathyList = []
 		for el in dicty["empathy"]:
@@ -168,7 +176,7 @@ def parsedJsonToJsonable(params):
 	parsedPlots = []
 	for plot in params["plots"]:
 		if "norm" in plot:
-			plot["norm"] = normToAbbreviation(plot["norm"])
+			plot["norm"] = tuple(map(normToAbbreviation, plot["norm"]))
 		if "empathy" in plot:
 			plot["empathy"] = np.average(plot["empathy"])
 		parsedPlots.append(plot)
@@ -179,7 +187,7 @@ def parsedJsonToJsonable(params):
 		params["variabilitySets"]["empathy"] = [thing.tolist() for thing in params["variabilitySets"]["empathy"]]
 
 	if "norm" in params["variabilitySets"]:
-		params["variabilitySets"]["norm"] = [normToAbbreviation(thing) for thing in params["variabilitySets"]["norm"]]
+		params["variabilitySets"]["norm"] = [list(map( normToAbbreviation, thing)) for thing in params["variabilitySets"]["norm"]]
 
 
 
