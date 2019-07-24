@@ -5,36 +5,28 @@ DEBUG = true
 PROGRESSVERBOSE = true
 TEST = false
 
-const ALLC = [1,1]
-const DISC = [0,1]
-const ALLD = [0,0]
 
-const STRATEGIES = [ALLD, DISC, ALLC]
-const STRATNUMS = collect(1:3)
-const STRATNAMES = ["ALLD", "DISC", "ALLD"]
+
+const SS = [[1, 0], [1, 1]]
+const SJ = [[1, 0], [0, 1]]
+const SC = [[0, 0], [1, 1]]
+const SH = [[0, 0], [0, 1]]
+
+const NORMS = [SC, SH, SJ, SS]
+const STRATNUMS = collect(1:4)
+const STRATNAMES = ["SC", "SH", "SJ", "SS"]
 
 mutable struct Agent 
 	type::Int
 	ID::Int
-	empathy::AbstractArray{Float64, 1}
-	strategy::AbstractArray{Int, 1}
-	stratString::String 
-	stratNumber::Int8
+	norms::Tuple{Vararg{Array{Int,2},4}}
+	normNumber::Int
 end
 
-function stratToString(strat::AbstractArray{Int, 1})
-	stratInd = sum(strat) + 1
-	return STRATNAMES[stratInd]
-end
-
-
-function stratToNumber(strat::AbstractArray{Int,1})
-	return sum(strat) + 1
-end
-
-function makeAgent(type, ID, stratNumber, empathyM)
-	strat = STRATEGIES[stratNumber]
-	myAgent = Agent(type, ID, empathyM[type+1,:], strat, stratToString(strat), stratNumber)
+function makeAgent(type, ID, normNumber)
+	numString = base(4,normNumber, 4)
+	norms = [NORMS[parse(Int,s)] for s in numString]
+	myAgent = Agent(type, ID, norms, normNumber)
 	return myAgent
 end
 
@@ -48,10 +40,7 @@ function moveError(move, ec)
 	end
 end
 
-function typeStratToNum(tup)
-	(type, stratNumber) = tup
-	return 3 * type + stratNumber - 1 #-1 from stratNumber being in [1,2,3]
-end
+
 
 # function typeStratDoubleToNum(firstTup, secondTup)
 # 	(firstType, firstStratNumber) = firstTup
@@ -59,85 +48,47 @@ end
 # 	return 6 * typeStratToNum((firstType, firstStratNumber)) + typeStratToNum((secondType, secondStratNumber))
 # end
 
-function generateStatistics!(statList, population, reputations, generation, cooperationRateArray, cooperationRateDetailedArray, roundPayoffs)
-	typeProportions = LinearAlgebra.zeros(Float64, 2, 4)
-	repStats = LinearAlgebra.zeros(Float64, 6,6)
-	repStatsDenoms = LinearAlgebra.zeros(Float64, 6,6)
-	payoffsByTypeStrat = LinearAlgebra.zeros(Float64, 6, 1)
+function generateStatistics!(statList,generation, population, cooperationRate)
+	typeProportions = LinearAlgebra.zeros(Float64, 256)
+	
 
 	for j in 1:length(population)
-		jnum = typeStratToNum(population[j].type, population[j].stratNumber) + 1
-
-
-		typeProportions[(population[j].type + 1), population[j].stratNumber] += 1.0 
-		typeProportions[(population[j].type + 1), 4] += 1.0 
-
-		payoffsByTypeStrat[jnum] += roundPayoffs[j]
-
-		for k in 1:length(population)
-			knum = typeStratToNum(population[k].type, population[k].stratNumber) + 1
-
-			repStats[jnum, knum] += reputations[j,k] * 1.0 
-			repStatsDenoms[jnum, knum] += 1.0 
-
-		end
+		typeProportions[population[j].normNumber + 1] += 1
 
 	end
-
-	repStats = repStats ./ repStatsDenoms
-
-	for j in 1:3
-		payoffsByStrat[j] = payoffsByStrat[j] / (typeProportions[1,j] + typeProportions[2,j])
-	end
+	typeProportions = typeProportions / length(population)
 
 
-	statList[generation]["proportions"] = typeProportions
-	statList[generation]["reputationsViewFromTo"] = repStats
-	statList[generation]["cooperationRate"] = cooperationRateArray
-	statList[generation]["cooperationRateDetailed"] = cooperationRateDetailedArray[:,:,1]
-	statList[generation]["roundPayoffs"] = payoffsByTypeStrat
-
+	statList[generation] = (typeProportions, cooperationRate)
 	return statList
 
 end
 
 
-function evolve(populationParameters::Dict{String, Int}, environmentParameters::Dict{String, Float64}, norm0::Array{Int,2}, norm1::Array{Int,2},empathyMatrix::Array{Float64,2}, printing::Bool)::Array{Dict{String, Array{Float64, 2}}, 1}
-	PROGRESSVERBOSE = printing
+function evolve()
+	PROGRESSVERBOSE = true
 
-	NUMAGENTS = populationParameters["numAgents"]
-	NUMAGENTS::Int
-	NUMGENERATIONS = populationParameters["numGenerations"]
-	NUMGENERATIONS::Int
-	NORM0 = norm0 #norm that type 0 individuals use
-	NORM1 = norm1 #norm that type 1 individuals use
-	NORMS = [NORM0, NORM1]
+	NUMAGENTSPERNORM = 100
+	NUMAGENTS = length(NORMS) ^ 4 * NUMAGENTSPERNORM
+	NUMGENERATIONS = 100000
+	INTERACTIONSPERAGENT = 100
 
-	Eobs = environmentParameters["Eobs"]
-	Eobs::Float64 #Observeration Error Rate. Effects judging
-	Ecoop = environmentParameters["Ecoop"]
-	Ecoop::Float64 #Cooperation Error Rate. Effects actions
-	w = environmentParameters["w"]
-	w::Float64 #selection strength
-	ustrat = environmentParameters["ustrat"]
-	ustrat::Float64 #random drift in strategy
-	u01 = environmentParameters["u01"]
-	u01::Float64 #type mutation rate 0 -> 1
-	u10 = environmentParameters["u10"]
-	u10::Float64 #type mutation rate 1 -> 0
-	gameBenefit = environmentParameters["gameBenefit"]
-	gameBenefit::Float64
-	gameCost = environmentParameters["gameCost"]
-	gameCost:: Float64
-	intergroupUpdateP = environmentParameters["intergroupUpdateP"]
-	intergroupUpdateP::Float64 #probability that the target individual to imitate is from the other group
+	Eobs = 0.02
+	Ecoop = 0.02
+	w = 1.0
+	ustrat = 0.0025
+	u01 = 0.0 #type mutation rate 0 -> 1
+	u10 = 0.0 #type mutation rate 1 -> 0
+	gameBenefit = 5.0
+	gameCost = 1.0
+	intergroupUpdateP = 0.0
 
 
 	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [makeAgent(i % 2, i, rand([1,2,3]), empathyMatrix) for i in 1:NUMAGENTS]
+	population = [makeAgent(i % 2, i, i % length(NORMS)) for i in 1:NUMAGENTS]
 	# arguments are: type, ID, strategy number, empathy
 
 	# println("empathy matrix: $empathyMatrix")
@@ -145,46 +96,46 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 	reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 	# reputations = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
 
-	statistics = [ Dict{String, Array{Float64, 2}}() for i in 1:NUMGENERATIONS]
+	statistics = [ (LinearAlgebra.zeros(Float64, 256), 0.0) for i in 1:NUMGENERATIONS]
+	statistics::Array{Tuple{Array{Float64,1}, Float64},1}
 
 
 	for i in 1:NUMGENERATIONS
 		startTime = time_ns()
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
-		reputationUpdates = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
+		reputationUpdates = LinearAlgebra.zeros(Complex{Int}, NUMAGENTS, INTERACTIONSPERAGENT)
 
-		cooperationRate = LinearAlgebra.zeros(Float64, 9, 2)
-		cooperationRateDetailed = LinearAlgebra.zeros(Float64, 6,6,2)
+		cooperationRate = 0.0
+		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
 		for j in 1:NUMAGENTS
 			#judges
 
-			for a in 1:NUMAGENTS
+			for a in 1:INTERACTIONSPERAGENT
+
+				agentID = ceil(rand() * NUMAGENTS)
 				#agents
 
-				adversaryID = rand((a+1):(a + NUMAGENTS - 1)) % NUMAGENTS + 1
+				adversaryID = ceil(rand() * NUMAGENTS)
 				#randomly selected but agents never have to play themselves.
 
-				adversaryRep = reputations[a, adversaryID]
+				adversaryRep = reputations[agentID, adversaryID]
 
-				agentAction = population[a].strategy[adversaryRep + 1]
+				agentAction = adversaryRep
 				agentAction = moveError(agentAction, Ecoop)
 
 				agentPayoff, adversaryPayoff = oneShotMatrix[agentAction + 1]
 
-				roundPayoffs[a] += agentPayoff
+				roundPayoffs[agentID] += agentPayoff
 				roundPayoffs[adversaryID] += adversaryPayoff
 
 				judgetype = population[j].type
 				
-				oldrep = reputations[j,a]
-				newrep = 0 #just to initialize variable
+				judgesview = reputations[j,adversaryID]
 
-				if rand() < population[j].empathy[population[a].type + 1]
-					newrep = NORMS[judgetype+1][agentAction + 1, adversaryRep + 1]
-				else
-					newrep = NORMS[judgetype+1][agentAction+1, reputations[j,adversaryID] + 1]
-				end
+				normInd = 2 * population[agentID].type + population[adversaryID].type
+
+				newrep = population[j].norms[normInd][agentAction, judgesview]
 
 				if rand()<Eobs
 					if newrep ==1
@@ -194,42 +145,24 @@ function evolve(populationParameters::Dict{String, Int}, environmentParameters::
 					end
 				end
 
-				reputationUpdates[j,a] = newrep - oldrep
+
+				reputationUpdates[j,a] = agentID + newrep * im
+
 
 				#strategy specific coop rate calculation
-				cooperationRate[population[a].stratNumber,1] += agentAction
-				cooperationRate[population[a].stratNumber,2] += 1 
-
-				#total coop rate calculation
-				cooperationRate[4,1] += agentAction
-				cooperationRate[4,2] += 1.0
-
-				#type specific coop rate calculation
-				binaryIndex = 2 * population[a].type + population[adversaryID].type
-
-				coopertionRate[5 + binaryIndex,1] += agentAction
-				cooperationRate[5 + binaryIndex, 2] += 1.0
-
-				#total intergroup coop rate calculation (difficult to calculate from above given stochastic pairing)
-				if binaryIndex == 1 || binaryIndex == 2
-					cooperationRate[9,1] += agentAction
-					cooperationRate[9,2] += 1.0
-				end
-
-				#detailed (type,strat) -> (type,strat) cooperation rate 
-				anum = typeStratToNum((population[a].type, population[a].stratNumber))
-				advnum = typeStratToNum((population[adversaryID].type, population[adversaryID].stratNumber))
-				cooperationRateDetailed[anum, advnum, 1] += agentAction
-				cooperationRateDetailed[anum,advnum, 2] += 1.0 
+				cooperationRate += agentAction
 
 
 			end
 		end
 
-		cooperationRate[:,1] = cooperationRate[:,1] ./ cooperationRate[:,2]
-		cooperationRateDetailed[:,:,1] = cooperationRate[:,:,1] ./ cooperationRate[:,:,2]
+		cooperationRate = cooperationRate / cooperationRateDenominator
 
-		statistics = generateStatistics!(statistics, population, reputations, i, cooperationRate,cooperationRateDetailed, roundPayoffs)
+		statistics = generateStatistics!(statistics, generation, population, cooperationRate)
+
+		for j in 1:NUMAGENTS
+			for a in 1:INTERACTIONSPERAGENT
+				reputations[j, Real(reputationUpdates[j,a])] = Im(reputationUpdates[j,a])
 
 		reputations = reputations + reputationUpdates
 

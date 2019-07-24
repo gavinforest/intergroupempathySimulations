@@ -196,9 +196,10 @@ def juliaOutputToStatisticsObject(output, argTuple):
 			for k, tTo in enumerate(strats):
 				reputationDict["viewsFromTo"][vFrom][tTo] = repM[j,k]
 
-		cooperationDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], 
+		cooperationSimpleDict = {"total": coopM[3,0], "ALLC": coopM[2,0], "DISC": coopM[1,0], "ALLD": coopM[0,0], 
 							"intragroup0":coopM[4,0],	"intergroup0->1" : coopM[5,0], "intergroup1->0" : coopM[6,0],
 							"intragroup1" : coopM[7,0], "intergroup" : coopM[8,0]}
+		cooperationTypeStrats = {}
 
 		stat = {}
 		stat["proportions"] = proportionDict
