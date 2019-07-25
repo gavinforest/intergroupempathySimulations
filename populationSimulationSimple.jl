@@ -110,6 +110,14 @@ function imageMatrix(reputations, population)
 end
 
 
+function updateReps!(reputations, a,b,action)
+	for j in 1:length(NORMS)
+		jsview = reputations[j,b]
+		# normInd = 2 * population[agentID].type + population[adversaryID].type
+		newrep = NORMS[j][1][action + 1, jsview + 1]
+		reputations[j,a] = newrep
+	end
+end
 
 
 
@@ -119,7 +127,10 @@ function evolve()
 	NUMAGENTSPERNORM = 200
 	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
 	NUMGENERATIONS = 1500
-	INTERACTIONSPERAGENT = 100
+	BATCHSPERAGENT = 10
+	BATCHSIZE = 10
+	# INTERACTIONSPERAGENT = 100
+	INTERACTIONSPERAGENT = BATCHSIZE * BATCHSPERAGENT
 	NUMIMITATE = 40
 
 	# Eobs = 0.02
@@ -128,7 +139,7 @@ function evolve()
 	ustrat = 0.0005
 	# u01 = 0.0 #type mutation rate 0 -> 1
 	# u10 = 0.0 #type mutation rate 1 -> 0
-	gameBenefit = 7.0
+	gameBenefit = 8
 	gameCost = 1.0
 	intergroupUpdateP = 0.0
 
@@ -159,36 +170,49 @@ function evolve()
 		cooperationRate = 0.0
 		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
-		for i in 1:NUMAGENTS * INTERACTIONSPERAGENT
+		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
 			a = trunc(Int, ceil(rand() * NUMAGENTS))
+			b = 0
+			action = 0
+
+			for j in 1:BATCHSIZE
+
 			#agent
 
-			b = trunc(Int, ceil(rand() * NUMAGENTS))
-			#adversary
+				b = trunc(Int, ceil(rand() * NUMAGENTS))
+				#adversary
 
-			bRep = reputations[population[a].normNumber, b]
+				bRep = reputations[population[a].normNumber, b]
 
-			action = bRep
-			# action = moveError(action, Ecoop)
+				action = bRep
+				# action = moveError(action, Ecoop)
 
-			aPayoff, bPayoff = oneShotMatrix[action + 1]
+				aPayoff, bPayoff = oneShotMatrix[action + 1]
 
-			roundPayoffs[a] += aPayoff
-			roundPayoffs[b] += bPayoff
-			
-			for j in 1:length(NORMS)
-				jsview = reputations[j,b]
-				# normInd = 2 * population[agentID].type + population[adversaryID].type
-				newrep = NORMS[j][1][action + 1, jsview + 1]
-				reputations[j,a] = newrep
+				roundPayoffs[a] += aPayoff
+				roundPayoffs[b] += bPayoff
+
+				if a == b
+					updateReps!(reputations, a, b, action)
+				end
+
+				cooperationRate += action
+
 			end
+
+			updateReps!(reputations, a, b,action)
+			# for j in 1:length(NORMS)
+			# 	jsview = reputations[j,b]
+			# 	# normInd = 2 * population[agentID].type + population[adversaryID].type
+			# 	newrep = NORMS[j][1][action + 1, jsview + 1]
+			# 	reputations[j,a] = newrep
+			# end
 
 
 			# newrep = population[j].norms[normInd][agentAction, judgesview]
 
 			#strategy specific coop rate calculation
-			cooperationRate += action
 		end
 
 		cooperationRate = cooperationRate / cooperationRateDenominator
