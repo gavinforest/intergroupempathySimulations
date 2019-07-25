@@ -7,26 +7,59 @@ TEST = false
 
 
 
-const SS = [[1, 0], [1, 1]]
-const SJ = [[1, 0], [0, 1]]
-const SC = [[0, 0], [1, 1]]
-const SH = [[0, 0], [0, 1]]
+# const SS = [[1, 0], [1, 1]]
+# const SJ = [[1, 0], [0, 1]]
+# const SC = [[0, 0], [1, 1]]
+# const SH = [[0, 0], [0, 1]]
 
-const NORMS = [SC, SH, SJ, SS]
-const STRATNUMS = collect(1:4)
-const STRATNAMES = ["SC", "SH", "SJ", "SS"]
+# const NORMS = [SC, SH, SJ, SS]
+# const STRATNUMS = collect(1:4)
+# const STRATNAMES = ["SC", "SH", "SJ", "SS"]
+
+
 
 mutable struct Agent 
 	type::Int
 	ID::Int
-	norms::Tuple{Vararg{Array{Int,2},4}}
 	normNumber::Int
 end
 
+function genSingleNorm(num)
+	nums = digits(num, base = 2, pad = 4)
+	mat = LinearAlgebra.zeros(Int, 2,2)
+	mat[1,1] = nums[1]
+	mat[2,2] = nums[4]
+	mat[2,1] = nums[3]
+	mat[1,2] = nums[2]
+
+	# mat = [[nums[4], nums[3]],[nums[2], nums[1]]]
+	return mat
+end
+
+function genNorm(num)
+	ordered = reverse(digits(num, base=16))
+	return tuple([genSingleNorm(i) for i in ordered]...)
+end
+
+function genTerminationMatrix(mat)
+	termMatrix = LinearAlgebra.zeros(Int8, 2)
+	for i in 1:2
+		if mat[i][1] == mat[i][2]
+			termMatrix[i] = 1
+
+	return termMatrix
+end
+
+
+const NORMS = [genNorm(i) for i in 0:(16 - 1)]
+const TERMINATIONMATRICES = [genTerminationMatrix(mat) for mat in NORMS]
+
+
+
 function makeAgent(type, ID, normNumber)
-	numString = base(4,normNumber, 4)
-	norms = [NORMS[parse(Int,s)] for s in numString]
-	myAgent = Agent(type, ID, norms, normNumber)
+	# numString = base(4,normNumber, 4)
+	# norms = [NORMS[parse(Int,s)] for s in numString]
+	myAgent = Agent(type, ID, normNumber)
 	return myAgent
 end
 
@@ -49,7 +82,7 @@ end
 # end
 
 function generateStatistics!(statList,generation, population, cooperationRate)
-	typeProportions = LinearAlgebra.zeros(Float64, 256)
+	typeProportions = LinearAlgebra.zeros(Float64, length(NORMS))
 	
 
 	for j in 1:length(population)
@@ -64,13 +97,90 @@ function generateStatistics!(statList,generation, population, cooperationRate)
 
 end
 
+function imageMatrix(reputations)
+
+	numNorms = length(NORMS)
+	numAgents = size(reputations)[2] #assumption about indexing here
+
+	imageMatrix = LinearAlgebra.zeros(Float64, numNorms, numNorms)
+
+	for i in 1:numNorms
+		for j in 1:numNorms
+			avg = 0.0
+			avgDenom = 0.0
+
+			for n in range(j, step = numNorms, stop = numAgents) # once again relying on modding during population creation
+				avg += reputations[i,n]
+				avgDenom += 1.0
+			end
+
+			imageMatrix[i,j] = avg/avgDenom
+
+		end
+	end
+
+mutable struct interaction
+	actor::Int
+	recipient::Int
+	action::Int
+	stepN::Int
+	recipientHead
+	parents::Int
+	children::Int
+end
+
+
+function cleanInteractions(numAgents)
+	return [interaction(i,i,-1, 0, Nothing, 0,0) for i in 1:numAgents]
+end
+
+function calculateReputation(i, normNumber, biglist,checkpointedReps)
+	termMatrix = TERMINATIONMATRICES[normNumber]
+	headObj = biglist[i]
+	children = headObj.children
+	interactionSequence = [headObj]
+
+	obj = headObj
+	while obj.children > 0 && termMatrix[obj.action + 1] == 0
+		obj = obj.recipientHead
+		append!(interactionSequence, obj)
+	end
+
+	#the important aspect of termination matrices here is that the reputatioin no longer matters,
+	#so we can assume that the final object refers to the checkpointed reputation, because if it doesn't,
+	#then we must have terminated early, and therefore the reputation doesn't matter for the norm calculation
+	#anyway
+	
+
+	recipientRep = checkpointedReps[normNumber,interactionSequence[end].recipient] 
+
+	for i in length(interactionSequence):-1:1
+		action = interactionSequence[i].action
+		recipientRep = NORMS[i][actioni,recipientRep]
+
+	return recipientRep
+
+
+end
+
+function refreshReputations(allInteractions, previousCheckpoints)
+	for i in 1:length(allInteractions)
+		
+
+
+end
+
+
+
+
+
 
 function evolve()
 	PROGRESSVERBOSE = true
 
 	NUMAGENTSPERNORM = 100
-	NUMAGENTS = length(NORMS) ^ 4 * NUMAGENTSPERNORM
-	NUMGENERATIONS = 100000
+	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
+	NUMGENERATIONS = 1
 	INTERACTIONSPERAGENT = 100
 
 	Eobs = 0.02
@@ -88,72 +198,66 @@ function evolve()
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [makeAgent(i % 2, i, i % length(NORMS)) for i in 1:NUMAGENTS]
-	# arguments are: type, ID, strategy number, empathy
+	population = [makeAgent(i % 2, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
 
-	reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
-	# reputations = LinearAlgebra.zeros(Int, NUMAGENTS, NUMAGENTS)
+	# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
+	reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
+
+	Interactions = cleanInteractions(NUMAGENTS)
+	Interactions::Array{interaction, 1}
 
 	statistics = [ (LinearAlgebra.zeros(Float64, 256), 0.0) for i in 1:NUMGENERATIONS]
 	statistics::Array{Tuple{Array{Float64,1}, Float64},1}
 
 
-	for i in 1:NUMGENERATIONS
+	for n in 1:NUMGENERATIONS
 		startTime = time_ns()
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
-		reputationUpdates = LinearAlgebra.zeros(Complex{Int}, NUMAGENTS, INTERACTIONSPERAGENT)
 
 		cooperationRate = 0.0
 		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
-		for j in 1:NUMAGENTS
-			#judges
+		for i in 1:NUMAGENTS * INTERACTIONSPERAGENT
 
-			for a in 1:INTERACTIONSPERAGENT
+			a = ceil(rand() * NUMAGENTS)
+			#agent
 
-				agentID = ceil(rand() * NUMAGENTS)
-				#agents
+			b = ceil(rand() * NUMAGENTS)
+			#adversary
 
-				adversaryID = ceil(rand() * NUMAGENTS)
-				#randomly selected but agents never have to play themselves.
+			bRep = reputations[population[a].normNumber, b]
 
-				adversaryRep = reputations[agentID, adversaryID]
+			action = bRep
+			action = moveError(action, Ecoop)
 
-				agentAction = adversaryRep
-				agentAction = moveError(agentAction, Ecoop)
+			aPayoff, bPayoff = oneShotMatrix[action + 1]
 
-				agentPayoff, adversaryPayoff = oneShotMatrix[agentAction + 1]
+			roundPayoffs[a] += aPayoff
+			roundPayoffs[b] += bPayoff
+			
+			judgesview = reputations[j,adversaryID]
 
-				roundPayoffs[agentID] += agentPayoff
-				roundPayoffs[adversaryID] += adversaryPayoff
+			normInd = 2 * population[agentID].type + population[adversaryID].type
 
-				judgetype = population[j].type
-				
-				judgesview = reputations[j,adversaryID]
+			newrep = population[j].norms[normInd][agentAction, judgesview]
 
-				normInd = 2 * population[agentID].type + population[adversaryID].type
-
-				newrep = population[j].norms[normInd][agentAction, judgesview]
-
-				if rand()<Eobs
-					if newrep ==1
-						newrep = 0
-					else
-						newrep = 1
-					end
+			if rand()<Eobs
+				if newrep ==1
+					newrep = 0
+				else
+					newrep = 1
 				end
-
-
-				reputationUpdates[j,a] = agentID + newrep * im
-
-
-				#strategy specific coop rate calculation
-				cooperationRate += agentAction
-
-
 			end
+
+
+			reputationUpdates[j,a] = agentID + newrep * im
+
+
+			#strategy specific coop rate calculation
+			cooperationRate += agentAction
 		end
 
 		cooperationRate = cooperationRate / cooperationRateDenominator
@@ -162,9 +266,8 @@ function evolve()
 
 		for j in 1:NUMAGENTS
 			for a in 1:INTERACTIONSPERAGENT
-				reputations[j, Real(reputationUpdates[j,a])] = Im(reputationUpdates[j,a])
+				reputations[j, real(reputationUpdates[j,a])] = imag(reputationUpdates[j,a])
 
-		reputations = reputations + reputationUpdates
 
 		#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
 		#creation of population. Beware changing that.
@@ -228,15 +331,7 @@ function evolve()
 end
 
 function testEvolve()
-	testPopParams = Dict("numAgents" => 100, "numGenerations" => 10000)
-
-	testEnvParams = Dict("Ecoop" => 0.02, "Eobs" => 0.02, "ustrat" => 0.0005, "u01" => 0.0, "u10" => 0.0, "w" => 1.0,
-					"gameBenefit" => 5.0, "gameCost" => 1.0)
-
-	testNorm = LinearAlgebra.ones(Int,2,2)
-	testNorm[1,2] = 0
-	testNorm[2,1] = 1
-	println("test norm: $testNorm")
+	
 
 	if TEST
 		stats = evolve(testPopParams, testEnvParams, testNorm, LinearAlgebra.zeros(Float64, 2,2))

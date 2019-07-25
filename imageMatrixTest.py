@@ -4,11 +4,14 @@ import matplotlib.animation as animation
 
 import julia
 J= julia.Julia()
-J.include("imageMatrixTesting.jl")
+# J.include("imageMatrixTesting.jl")
+J.include("populationSimulationSimple.jl")
 
 # imageMatrices = J.interactionMatrix()
 # imageMatrices = J.semiagentInteractionMatrix()
-imageMatrix = J.interactionIterateCondensed()
+# imageMatrix = J.interactionIterateCondensed()
+stats, imageMatrix = J.evolve()
+
 # print(len(imageMatrices))
 
 fig = plt.figure()
@@ -36,6 +39,17 @@ ax1 = plt.subplot(1,1,1)
 # ani = animation.FuncAnimation(fig, animationFunc, interval=1000)
 # ani.save("1616approxtest1.gif", writer="imagemagick")
 
-plt.matshow(imageMatrix, cmap="Greys_r")
-plt.colorbar()
+# plt.matshow(imageMatrix, cmap="Greys_r")
+# plt.colorbar()
+for i in range(16):
+	line = []
+	for stat in stats:
+		line.append(stat[0][i])
+
+	plt.plot(line, label = "norm " + str(i+1))
+
+coops = [stat[1] for stat in stats]
+plt.plot(coops, label="Cooperation Rate", color="grey", linestyle="dashed")
+
+plt.legend()
 plt.show()
