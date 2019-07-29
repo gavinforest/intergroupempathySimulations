@@ -6,6 +6,7 @@ import julia
 J= julia.Julia()
 # J.include("imageMatrixTesting.jl")
 J.include("populationSimulationSimple.jl")
+# J.include("populationSimulation.jl")
 
 # imageMatrices = J.interactionMatrix()
 # imageMatrices = J.semiagentInteractionMatrix()

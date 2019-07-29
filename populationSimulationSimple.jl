@@ -42,8 +42,20 @@ function genNorm(num)
 end
 
 
+function listDoubler(l)
 
-const NORMS = [genNorm(i) for i in 0:(16 - 1)]
+	for i in 1:4
+		append!(l,l)
+	end
+	return l
+end
+
+# const NORMS = [genNorm(i) for i in 0:(16 - 1)]
+const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
+# for i in 1:4
+# 	append!(NORMS, NORMS)
+# end
+println("Number of norms: $(length(NORMS))")
 
 
 
@@ -127,8 +139,8 @@ function evolve()
 	NUMAGENTSPERNORM = 200
 	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
 	NUMGENERATIONS = 1500
-	BATCHSPERAGENT = 10
-	BATCHSIZE = 10
+	BATCHSPERAGENT = 2
+	BATCHSIZE = 50
 	# INTERACTIONSPERAGENT = 100
 	INTERACTIONSPERAGENT = BATCHSIZE * BATCHSPERAGENT
 	NUMIMITATE = 40
@@ -194,20 +206,25 @@ function evolve()
 				roundPayoffs[b] += bPayoff
 
 				if a == b
-					updateReps!(reputations, a, b, action)
+					for j in 1:length(NORMS)
+						jsview = reputations[j,b]
+						# normInd = 2 * population[agentID].type + population[adversaryID].type
+						newrep = NORMS[j][1][action + 1, jsview + 1]
+						reputations[j,a] = newrep
+					end
 				end
 
 				cooperationRate += action
 
 			end
 
-			updateReps!(reputations, a, b,action)
-			# for j in 1:length(NORMS)
-			# 	jsview = reputations[j,b]
-			# 	# normInd = 2 * population[agentID].type + population[adversaryID].type
-			# 	newrep = NORMS[j][1][action + 1, jsview + 1]
-			# 	reputations[j,a] = newrep
-			# end
+			# updateReps!(reputations, a, b,action)
+			for j in 1:length(NORMS)
+				jsview = reputations[j,b]
+				# normInd = 2 * population[agentID].type + population[adversaryID].type
+				newrep = NORMS[j][1][action + 1, jsview + 1]
+				reputations[j,a] = newrep
+			end
 
 
 			# newrep = population[j].norms[normInd][agentAction, judgesview]
