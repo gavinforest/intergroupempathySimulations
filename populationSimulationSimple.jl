@@ -1,4 +1,5 @@
 import LinearAlgebra
+using Distributed
 
 
 DEBUG = true
@@ -55,7 +56,7 @@ end
 # for i in 1:4
 # 	append!(NORMS, NORMS)
 # end
-const NORMMAX = 16
+const NORMMAX = 256
 
 println("Number of norms: $NORMMAX")
 
@@ -176,6 +177,7 @@ function evolve()
 
 	# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 	reputations = LinearAlgebra.ones(Int8, NORMMAX, NUMAGENTS)
+	# reputations = SharedArray{Int8,2}((NORMMAX, NUMAGENTS))
 
 
 	statistics = [ (LinearAlgebra.zeros(Float64, NORMMAX), 0.0) for i in 1:NUMGENERATIONS]
