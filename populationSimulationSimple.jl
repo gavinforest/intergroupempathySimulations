@@ -42,16 +42,16 @@ function genNorm(num)
 end
 
 
-function listDoubler(l)
+# function listDoubler(l)
 
-	for i in 1:4
-		append!(l,l)
-	end
-	return l
-end
+# 	for i in 1:4
+# 		append!(l,l)
+# 	end
+# 	return l
+# end
 
-# const NORMS = [genNorm(i) for i in 0:(16 - 1)]
-const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
+const NORMS = [genNorm(i) for i in 0:(16 - 1)]
+# const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
 # for i in 1:4
 # 	append!(NORMS, NORMS)
 # end
