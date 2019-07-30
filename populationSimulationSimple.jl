@@ -51,13 +51,22 @@ function listDoubler(l)
 end
 
 # const NORMS = [genNorm(i) for i in 0:(16 - 1)]
-const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
+# const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
 # for i in 1:4
 # 	append!(NORMS, NORMS)
 # end
-println("Number of norms: $(length(NORMS))")
+const NORMMAX = 16
+
+println("Number of norms: $NORMMAX")
 
 
+function getRepMask(action,rep,typeaction,typerep)
+	return (1 << (2*action + rep + 4*(2*typeaction + typerep))&63) 
+end
+
+function getRep(normNumber, action, rep, typeaction, typerep)
+	return (normNumber & _getRepMask(action,rep,typeaction,typerep)) != 0
+end
 
 # function makeAgent(type, ID, normNumber)
 # 	# numString = base(4,normNumber, 4)
@@ -85,7 +94,7 @@ end
 # end
 
 function generateStatistics!(statList,generation, population, cooperationRate)
-	typeProportions = LinearAlgebra.zeros(Float64, length(NORMS))
+	typeProportions = LinearAlgebra.zeros(Float64, NORMMAX)
 	
 
 	for j in 1:length(population)
@@ -137,7 +146,7 @@ function evolve()
 	PROGRESSVERBOSE = true
 
 	NUMAGENTSPERNORM = 200
-	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
+	NUMAGENTS = NORMMAX * NUMAGENTSPERNORM
 	NUMGENERATIONS = 1500
 	BATCHSPERAGENT = 2
 	BATCHSIZE = 50
@@ -160,19 +169,19 @@ function evolve()
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [Agent(i % 2, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	population = [Agent(0, i + 1, (i % NORMMAX) + 1) for i in 0:(NUMAGENTS-1)]
 	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
 
 	# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
-	reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
+	reputations = LinearAlgebra.ones(Int8, NORMMAX, NUMAGENTS)
 
 
-	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS)), 0.0) for i in 1:NUMGENERATIONS]
+	statistics = [ (LinearAlgebra.zeros(Float64, NORMMAX), 0.0) for i in 1:NUMGENERATIONS]
 	statistics::Array{Tuple{Array{Float64,1}, Float64},1}
 
-	mostRecentImgMatrix = LinearAlgebra.zeros(Float64, length(NORMS), length(NORMS))
+	mostRecentImgMatrix = LinearAlgebra.zeros(Float64, NORMMAX, NORMMAX)
 
 
 	for n in 1:NUMGENERATIONS
@@ -206,25 +215,35 @@ function evolve()
 				roundPayoffs[b] += bPayoff
 
 				if a == b
-					for j in 1:length(NORMS)
-						jsview = reputations[j,b]
-						# normInd = 2 * population[agentID].type + population[adversaryID].type
-						newrep = NORMS[j][1][action + 1, jsview + 1]
-						reputations[j,a] = newrep
-					end
+					baseMask = getRepMask(action, 0, population[a].type, population[b].type)
+					masks = baseMask .<< reputations[:,a] 
+					reputations[:,a]  = (((1:NORMMAX) .& masks) .!= 0) .& (1 % Int8)
+
+					# for j in 1:NORMMAX
+					# 	jsview = reputations[j,b]
+					# 	normInd = population[adversaryID].type + 1 #COOL OPTIONS HERE
+					# 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
+					# 	# newrep = getRep(j, action, jsview, population[a].type, population[b].type)
+					# 	reputations[j,a] = newrep
+					# end
 				end
 
 				cooperationRate += action
 
 			end
 
+			baseMask = getRepMask(action, 0, population[a].type, population[b].type)
+			masks = baseMask .<< reputations[:,a]
+			reputations[:,a]  = (((1:NORMMAX) .& masks) .!= 0) .& (1 % Int8)
+
 			# updateReps!(reputations, a, b,action)
-			for j in 1:length(NORMS)
-				jsview = reputations[j,b]
-				# normInd = 2 * population[agentID].type + population[adversaryID].type
-				newrep = NORMS[j][1][action + 1, jsview + 1]
-				reputations[j,a] = newrep
-			end
+			# for j in 1:length(NORMS)
+			# 	jsview = reputations[j,b]
+			# 	normInd = population[adversaryID].type + 1 #COOL OPTIONS HERE
+			# 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
+			# 	# newrep = getRep(j, action, jsview, population[a].type, population[b].type)
+			# 	reputations[j,a] = newrep
+			# end
 
 
 			# newrep = population[j].norms[normInd][agentAction, judgesview]
@@ -284,7 +303,7 @@ function evolve()
 		#random drift applied uniformly to all individuals
 		for j in 1:NUMAGENTS
 			if rand() < ustrat
-				num = rand(1:length(NORMS))
+				num = rand(1:NORMMAX)
 				population[j].normNumber = num
 			end
 

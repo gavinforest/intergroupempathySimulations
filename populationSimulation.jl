@@ -80,6 +80,14 @@ function moveError(move, ec)
 end
 
 
+function _getRepMask(action,rep,typeaction,typerep)
+	return (1 << (2*action + rep + 4*(2*typeaction + typerep)))
+end
+
+function getRep(normNumber, action, rep, typeaction, typerep)
+	return (normNumber & _getRepMask(action,rep,typeaction,typerep)) != 0
+end
+
 
 # function typeStratDoubleToNum(firstTup, secondTup)
 # 	(firstType, firstStratNumber) = firstTup
