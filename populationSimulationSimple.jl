@@ -37,7 +37,7 @@ function genSingleNorm(num)
 end
 
 function genNorm(num)
-	ordered = reverse(digits(num, base=16))
+	ordered = reverse(digits(num, base=16, pad=2))
 	return tuple([genSingleNorm(i) for i in ordered]...)
 end
 
@@ -50,7 +50,8 @@ end
 # 	return l
 # end
 
-const NORMS = [genNorm(i) for i in 0:(16 - 1)]
+# const NORMS = [(genNorm(i), genNorm(j)) for i in 0:(16 - 1) for j in 0:(16-1)]
+const NORMS = [genNorm(i) for i in 0:(16^2 -1)]
 # const NORMS = listDoubler([genNorm(i) for i in 0:(16 - 1)])
 # for i in 1:4
 # 	append!(NORMS, NORMS)
@@ -208,8 +209,8 @@ function evolve()
 				if a == b
 					for j in 1:length(NORMS)
 						jsview = reputations[j,b]
-						# normInd = 2 * population[agentID].type + population[adversaryID].type
-						newrep = NORMS[j][1][action + 1, jsview + 1]
+						normInd = population[b].type + 1 #COOL OPTIONS HERE
+						newrep = NORMS[j][normInd][action + 1, jsview + 1]
 						reputations[j,a] = newrep
 					end
 				end
@@ -221,8 +222,9 @@ function evolve()
 			# updateReps!(reputations, a, b,action)
 			for j in 1:length(NORMS)
 				jsview = reputations[j,b]
-				# normInd = 2 * population[agentID].type + population[adversaryID].type
-				newrep = NORMS[j][1][action + 1, jsview + 1]
+				normInd = population[b].type + 1 #COOL OPTIONS HERE
+				# println("NORMS[j]: $(NORMS[j])")
+				newrep = NORMS[j][normInd][action + 1, jsview + 1]
 				reputations[j,a] = newrep
 			end
 
