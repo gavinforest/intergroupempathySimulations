@@ -42,7 +42,7 @@ ax1 = plt.subplot(1,1,1)
 
 # plt.matshow(imageMatrix, cmap="Greys_r")
 # plt.colorbar()
-for i in range(16):
+for i in range(256):
 	line = []
 	for stat in stats:
 		line.append(stat[0][i])
@@ -52,5 +52,5 @@ for i in range(16):
 coops = [stat[1] for stat in stats]
 plt.plot(coops, label="Cooperation Rate", color="grey", linestyle="dashed")
 
-plt.legend()
+# plt.legend()
 plt.show()

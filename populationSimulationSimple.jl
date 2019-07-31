@@ -1,9 +1,10 @@
+using Distributed
 import LinearAlgebra
 
 
-DEBUG = true
-PROGRESSVERBOSE = true
-TEST = false
+const DEBUG = true
+const PROGRESSVERBOSE = true
+const TEST = false
 
 
 
@@ -56,7 +57,7 @@ const NORMS = [genNorm(i) for i in 0:(16^2 -1)]
 # for i in 1:4
 # 	append!(NORMS, NORMS)
 # end
-println("Number of norms: $(length(NORMS))")
+
 
 
 
@@ -86,17 +87,22 @@ end
 # end
 
 function generateStatistics!(statList,generation, population, cooperationRate)
-	typeProportions = LinearAlgebra.zeros(Float64, length(NORMS))
-	
+	normProportions = LinearAlgebra.zeros(Float64, length(NORMS))
+	type1prop = 0
 
 	for j in 1:length(population)
-		typeProportions[population[j].normNumber] += 1
+		normProportions[population[j].normNumber] += 1
+		type1prop += population[j].type 
+		
 
 	end
-	typeProportions = typeProportions / length(population)
+
+	type1prop = type1prop / length(population)
+
+	normProportions = normProportions / length(population)
 
 
-	statList[generation] = (typeProportions, cooperationRate)
+	statList[generation] = (normProportions, cooperationRate, 1.0 - type1prop, type1prop)
 	return statList
 
 end
@@ -132,19 +138,20 @@ function updateReps!(reputations, a,b,action)
 	end
 end
 
-
+println("Number of norms: $(length(NORMS))")
+println("Number of processes: $(nprocs())")
 
 function evolve()
 	PROGRESSVERBOSE = true
 
 	NUMAGENTSPERNORM = 200
 	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
-	NUMGENERATIONS = 1500
+	NUMGENERATIONS = 2500
 	BATCHSPERAGENT = 2
 	BATCHSIZE = 50
 	# INTERACTIONSPERAGENT = 100
 	INTERACTIONSPERAGENT = BATCHSIZE * BATCHSPERAGENT
-	NUMIMITATE = 40
+	NUMIMITATE = 640
 
 	# Eobs = 0.02
 	Ecoop = 0.00
@@ -161,17 +168,18 @@ function evolve()
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [Agent(i % 2, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	population = [Agent(1, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
 	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
 
 	# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 	reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
+	# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
 
 
-	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS)), 0.0) for i in 1:NUMGENERATIONS]
-	statistics::Array{Tuple{Array{Float64,1}, Float64},1}
+	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS)), 0.0,0.0,0.0) for i in 1:NUMGENERATIONS]
+	statistics::Array{Tuple{Array{Float64,1}, Float64, Float64, Float64},1}
 
 	mostRecentImgMatrix = LinearAlgebra.zeros(Float64, length(NORMS), length(NORMS))
 
@@ -220,6 +228,7 @@ function evolve()
 			end
 
 			# updateReps!(reputations, a, b,action)
+			# updates = SharedArray{Int8,1}((length(NORMS)))
 			for j in 1:length(NORMS)
 				jsview = reputations[j,b]
 				normInd = population[b].type + 1 #COOL OPTIONS HERE
@@ -227,6 +236,7 @@ function evolve()
 				newrep = NORMS[j][normInd][action + 1, jsview + 1]
 				reputations[j,a] = newrep
 			end
+			# reputations[:,a] = updates
 
 
 			# newrep = population[j].norms[normInd][agentAction, judgesview]
