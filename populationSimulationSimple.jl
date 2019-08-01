@@ -393,20 +393,19 @@ function evolve(parameterDictionary)
 			ind1 = trunc(Int,floor(rand() * NUMAGENTS))
 			ind2 = trunc(Int, floor(rand() * NUMAGENTS))
 
+			inter = rand() < intergroupUpdateP
+
+			if (ind2 - ind1) %2 == 0 && inter
+				ind2 = (ind2 + 1) % NUMAGENTS
+			elseif (ind2 - ind1) %2 == 1 && !inter
+				ind2 = (ind2 + 1) % NUMAGENTS
+				if ind1 == ind2
+					ind2 = (ind2 + 2) % NUMAGENTS
+				end
+			end
+
 			if ind1 != ind2 && ! in(ind1 + 1, changed) && ! in(ind2 + 1, changed)
 
-
-				# inter = rand() < intergroupUpdateP
-
-				# if (ind2 - ind1) %2 == 0 && inter
-				# 	ind2 = (ind2 + 1) % NUMAGENTS
-				# elseif (ind2 - ind1) %2 == 1 && !inter
-				# 	ind2 = (ind2 + 1) % NUMAGENTS
-				# 	if ind1 == ind2
-				# 		ind2 = (ind2 + 2) % NUMAGENTS
-				# 	end
-				# end
-					
 				ind1 += 1
 				ind2 += 1
 
