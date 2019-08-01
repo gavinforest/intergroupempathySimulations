@@ -129,46 +129,164 @@ function imageMatrix(reputations, population)
 end
 
 
-function updateReps!(reputations, a,b,action)
+function updateReps!(reputations, population, a,b,action, perpetratorNorms)
+	if ! perpetratorNorms
+		normInd = population[b].type + 1 #COOL OPTIONS HERE
+	else
+		normInd = population[a].type + 1
+	end
+
 	for j in 1:length(NORMS)
 		jsview = reputations[j,b]
-		# normInd = 2 * population[agentID].type + population[adversaryID].type
-		newrep = NORMS[j][1][action + 1, jsview + 1]
+		newrep = NORMS[j][normInd][action + 1, jsview + 1]
 		reputations[j,a] = newrep
 	end
 end
 
+function batchUpdate!(numagents,batchsize, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
+	a = trunc(Int, ceil(rand() * numagents))
+	b = 0
+	action = 0
+
+	for j in 1:batchsize
+		b = trunc(Int, ceil(rand() * numagents))
+		#adversary
+
+		action = reputations[population[a].normNumber, b]
+		# action = moveError(action, Ecoop)
+
+		aPayoff, bPayoff = oneShotMatrix[action + 1]
+
+		roundPayoffs[a] += aPayoff
+		roundPayoffs[b] += bPayoff
+
+		if a == b
+			
+			updateReps!(reputations,population, a, b, action, perpetratorNorms)
+		end
+
+		cooperationRate += action
+
+	end
+
+	updateReps!(reputations,population, a, b, action, perpetratorNorms)
+
+	return cooperationRate
+end
+
+# function generation(NUMAGENTS, INTERACTIONSPERAGENT, PROGRESSVERBOSE, reputations, population, NUMIMITATE)
+# 	startTime = time_ns()
+# 	roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
+
+# 	cooperationRate = 0.0
+# 	cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
+
+# 	for i in 1:NUMAGENTS * BATCHSPERAGENT
+
+# 		cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
+# 	end
+
+# 	cooperationRate = cooperationRate / cooperationRateDenominator
+
+# 	statistics = generateStatistics!(statistics, n, population, cooperationRate)
+
+
+# 	#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
+# 	#creation of population. Beware changing that.
+
+
+# 	changed = Set()
+
+# 	for i in 1:NUMIMITATE
+# 		ind1 = trunc(Int,floor(rand() * NUMAGENTS))
+# 		ind2 = trunc(Int, floor(rand() * NUMAGENTS))
+
+# 		if ind1 != ind2 && ! in(ind1 + 1, changed) && ! in(ind2 + 1, changed)
+
+
+# 			ind1 += 1
+# 			ind2 += 1
+
+# 			pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
+# 			if rand() < pCopy
+# 				population[ind1].normNumber = population[ind2].normNumber
+# 				push!(changed, ind1)
+# 			end
+# 		end
+# 	end
+
+# 	#random drift applied uniformly to all individuals
+# 	for j in 1:NUMAGENTS
+# 		if rand() < ustrat
+# 			num = rand(1:length(NORMS))
+# 			population[j].normNumber = num
+# 		end
+
+# 		# if population[j].type == 0 && u01 > rand()
+# 		# 	population[j].type = 1
+# 		# elseif population[j].type == 1 && u10 > rand()
+# 		# 	population[j].type = 0
+# 		# end
+# 	end
+# 	endTime = time_ns()
+# 	elapsedSecs = (endTime - startTime) / 1.0e9
+# 	if PROGRESSVERBOSE
+# 		println("**Completed modeling generation: $n in $elapsedSecs seconds")
+# 		# println("statistics for this generration are: $(statistics[i])")
+# 	end
+
+
+# end
+
+
 println("Number of norms: $(length(NORMS))")
 println("Number of processes: $(nprocs())")
 
-function evolve()
-	PROGRESSVERBOSE = true
+function evolve(parameterDictionary)
+	PROGRESSVERBOSE = parameterDictionary["PROGRESSVERBOSE"]
+	PROGRESSVERBOSE::Bool
 
-	NUMAGENTSPERNORM = 200
+	NUMAGENTSPERNORM = parameterDictionary["NUMAGENTSPERNORM"]
+	NUMAGENTSPERNORM::Int
 	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
-	NUMGENERATIONS = 2500
-	BATCHSPERAGENT = 2
-	BATCHSIZE = 50
+	NUMGENERATIONS = parameterDictionary["NUMGENERATIONS"]
+	NUMGENERATIONS::Int
+	BATCHSPERAGENT = parameterDictionary["BATCHSPERAGENT"]
+	BATCHSPERAGENT::Int
+	BATCHSIZE = parameterDictionary["BATCHSIZE"]
+	BATCHSIZE::Int
 	# INTERACTIONSPERAGENT = 100
 	INTERACTIONSPERAGENT = BATCHSIZE * BATCHSPERAGENT
-	NUMIMITATE = 640
+	NUMIMITATE = parameterDictionary["NUMIMITATE"]
+	NUMIMITATE::Int
 
 	# Eobs = 0.02
-	Ecoop = 0.00
-	w = 1.0
-	ustrat = 0.0005
+	Ecoop = parameterDictionary["Ecoop"]
+	Ecoop::Float64
+	w = parameterDictionary["w"]
+	w::Float64
+	ustrat = parameterDictionary["ustrat"]
+	ustrat::Float64
+	utype = parameterDictionary["utype"]
+	utype::Float64
 	# u01 = 0.0 #type mutation rate 0 -> 1
 	# u10 = 0.0 #type mutation rate 1 -> 0
-	gameBenefit = 8
-	gameCost = 1.0
-	intergroupUpdateP = 0.0
+	gameBenefit = parameterDictionary["gameBenefit"]
+	gameBenefit::Float64
+
+	gameCost = parameterDictionary["gameCost"]
+	gameCost::Float64
+	intergroupUpdateP = parameterDictionary["intergroupUpdateP"]
+	intergroupUpdateP::Float64
+	perpetratorNorms = parameterDictionary["perpetratorNorms"]
+	perpetratorNorms::Bool
 
 
 	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [Agent(1, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	population = [Agent(i%2, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
 	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
@@ -193,49 +311,62 @@ function evolve()
 
 		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
-			a = trunc(Int, ceil(rand() * NUMAGENTS))
-			b = 0
-			action = 0
+			cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
 
-			for j in 1:BATCHSIZE
+			# a = trunc(Int, ceil(rand() * NUMAGENTS))
+			# b = 0
+			# action = 0
 
-			#agent
+			# for j in 1:BATCHSIZE
 
-				b = trunc(Int, ceil(rand() * NUMAGENTS))
-				#adversary
+			# #agent
 
-				bRep = reputations[population[a].normNumber, b]
+			# 	b = trunc(Int, ceil(rand() * NUMAGENTS))
+			# 	#adversary
 
-				action = bRep
-				# action = moveError(action, Ecoop)
+			# 	bRep = reputations[population[a].normNumber, b]
 
-				aPayoff, bPayoff = oneShotMatrix[action + 1]
+			# 	action = bRep
+			# 	# action = moveError(action, Ecoop)
 
-				roundPayoffs[a] += aPayoff
-				roundPayoffs[b] += bPayoff
+			# 	aPayoff, bPayoff = oneShotMatrix[action + 1]
 
-				if a == b
-					for j in 1:length(NORMS)
-						jsview = reputations[j,b]
-						normInd = population[b].type + 1 #COOL OPTIONS HERE
-						newrep = NORMS[j][normInd][action + 1, jsview + 1]
-						reputations[j,a] = newrep
-					end
-				end
+			# 	roundPayoffs[a] += aPayoff
+			# 	roundPayoffs[b] += bPayoff
 
-				cooperationRate += action
+			# 	if a == b
+			# 		# for j in 1:length(NORMS)
+			# 		# 	jsview = reputations[j,b]
+			# 		# 	if ! perpetratorNorms
+			# 		# 		normInd = population[b].type + 1 #COOL OPTIONS HERE
+			# 		# 	else
+			# 		# 		normInd = population[a].type + 1
+			# 		# 	end
 
-			end
+			# 		# 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
+			# 		# 	reputations[j,a] = newrep
+			# 		# end
+			# 		updateReps!(reputations, a, b, action, perpetratorNorms)
+			# 	end
 
-			# updateReps!(reputations, a, b,action)
-			# updates = SharedArray{Int8,1}((length(NORMS)))
-			for j in 1:length(NORMS)
-				jsview = reputations[j,b]
-				normInd = population[b].type + 1 #COOL OPTIONS HERE
-				# println("NORMS[j]: $(NORMS[j])")
-				newrep = NORMS[j][normInd][action + 1, jsview + 1]
-				reputations[j,a] = newrep
-			end
+			# 	cooperationRate += action
+
+			# end
+
+			# # updateReps!(reputations, a, b,action)
+			# # updates = SharedArray{Int8,1}((length(NORMS)))
+			# # for j in 1:length(NORMS)
+			# # 	jsview = reputations[j,b]
+			# # 	if ! perpetratorNorms
+			# # 		normInd = population[b].type + 1 #COOL OPTIONS HERE
+			# # 	else
+			# # 		normInd = population[a].type + 1
+			# # 	end
+			# # 	# println("NORMS[j]: $(NORMS[j])")
+			# # 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
+			# # 	reputations[j,a] = newrep
+			# # end
+			# updateReps!(reputations, a, b, action, perpetratorNorms)
 			# reputations[:,a] = updates
 
 
@@ -288,15 +419,10 @@ function evolve()
 		end
 
 
-
-		if PROGRESSVERBOSE
-			println("--- simulated generation")
-		end
-
 		#random drift applied uniformly to all individuals
 		for j in 1:NUMAGENTS
 			if rand() < ustrat
-				num = rand(1:length(NORMS))
+				num = trunc(Int, ceil(rand() * length(NORMS)))
 				population[j].normNumber = num
 			end
 
