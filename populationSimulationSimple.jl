@@ -78,6 +78,10 @@ function moveError(move, ec)
 	end
 end
 
+function mirrorNormNumber(num)
+	return ((num >> 4) + (num<<4))&255
+end
+
 
 
 # function typeStratDoubleToNum(firstTup, secondTup)
@@ -129,8 +133,14 @@ function imageMatrix(reputations, population)
 end
 
 
-function updateReps!(reputations, population, a,b,action, perpetratorNorms)
-	if ! perpetratorNorms
+function updateReps!(reputations, population, a,b,action, perpetratorNorms, relativeNorms, uvisibility)
+	
+	if relativeNorms
+		if rand() < uvisibility
+			normInd = 1 + abs(population[a].type - population[b].type)
+		else
+			normInd = 1
+	elseif ! perpetratorNorms
 		normInd = population[b].type + 1 #COOL OPTIONS HERE
 	else
 		normInd = population[a].type + 1
@@ -143,16 +153,22 @@ function updateReps!(reputations, population, a,b,action, perpetratorNorms)
 	end
 end
 
-function batchUpdate!(numagents,batchsize, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
+function batchUpdate!(numagents,batchsize, reputations, population, perpetratorNorms, relativeNorms, uvisibility, oneShotMatrix, roundPayoffs, cooperationRate)
 	a = trunc(Int, ceil(rand() * numagents))
+	normNumber = population[a].normNumber
 	b = 0
 	action = 0
 
 	for j in 1:batchsize
 		b = trunc(Int, ceil(rand() * numagents))
 		#adversary
-
-		action = reputations[population[a].normNumber, b]
+		action = reputations[normNumber, b]
+		# if !relativeNorms
+		# 	action = reputations[normNumber, b]
+		# elseif atype
+		# 	action = reputations[mirroredNormNumber,b]
+		# else
+		# 	action = reputations[normNumber, b]
 		# action = moveError(action, Ecoop)
 
 		aPayoff, bPayoff = oneShotMatrix[action + 1]
@@ -162,14 +178,14 @@ function batchUpdate!(numagents,batchsize, reputations, population, perpetratorN
 
 		if a == b
 			
-			updateReps!(reputations,population, a, b, action, perpetratorNorms)
+			updateReps!(reputations,population, a, b, action, perpetratorNorms, relativeNorms, uvisibility)
 		end
 
 		cooperationRate += action
 
 	end
 
-	updateReps!(reputations,population, a, b, action, perpetratorNorms)
+	updateReps!(reputations,population, a, b, action, perpetratorNorms, relativeNorms, uvisibility)
 
 	return cooperationRate
 end
@@ -280,6 +296,11 @@ function evolve(parameterDictionary)
 	intergroupUpdateP::Float64
 	perpetratorNorms = parameterDictionary["perpetratorNorms"]
 	perpetratorNorms::Bool
+	relativeNorms = parameterDictionary["relativeNorms"]
+	relativeNorms::Bool
+	uvisibility = parameterDictionary["uvisibility"]
+	uvisibility::Float64
+
 
 
 	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
@@ -311,7 +332,7 @@ function evolve(parameterDictionary)
 
 		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
-			cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
+			cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, relativeNorms, uvisibility, oneShotMatrix, roundPayoffs, cooperationRate)
 
 			# a = trunc(Int, ceil(rand() * NUMAGENTS))
 			# b = 0
