@@ -140,6 +140,7 @@ function updateReps!(reputations, population, a,b,action, perpetratorNorms, rela
 			normInd = 1 + abs(population[a].type - population[b].type)
 		else
 			normInd = 1
+		end
 	elseif ! perpetratorNorms
 		normInd = population[b].type + 1 #COOL OPTIONS HERE
 	else
@@ -300,6 +301,8 @@ function evolve(parameterDictionary)
 	relativeNorms::Bool
 	uvisibility = parameterDictionary["uvisibility"]
 	uvisibility::Float64
+	imitationCoupling = parameterDictionary["imitationCoupling"]
+	imitationCoupling::Float64
 
 
 
@@ -432,7 +435,20 @@ function evolve(parameterDictionary)
 
 				pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
 				if rand() < pCopy
-					population[ind1].normNumber = population[ind2].normNumber
+
+					if rand() < imitationCoupling
+						population[ind1].normNumber = population[ind2].normNumber
+					else
+						if rand() < 0.5
+							newNum = (population[ind1].normNumber & 15) + (population[ind2].normNumber & (255 - 15))
+						else
+							newNum = (population[ind2].normNumber & 15) + (population[ind1].normNumber & (255 - 15))
+						end
+
+						population[ind1].normNumber = population[ind2].normNumber
+					end
+
+					# population[ind1].normNumber = population[ind2].normNumber
 					push!(changed, ind1)
 				end
 			end
