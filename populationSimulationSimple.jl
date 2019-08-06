@@ -90,23 +90,23 @@ end
 # 	return 6 * typeStratToNum((firstType, firstStratNumber)) + typeStratToNum((secondType, secondStratNumber))
 # end
 
-function generateStatistics!(statList,generation, population, cooperationRate)
-	normProportions = LinearAlgebra.zeros(Float64, length(NORMS))
-	type1prop = 0
+function generateStatistics!(statList,generation, population, numGroups, cooperationRate)
+	normProportions = LinearAlgebra.zeros(Float64, length(NORMS), numGroups)
+	# type1prop = 0
 
 	for j in 1:length(population)
-		normProportions[population[j].normNumber] += 1
-		type1prop += population[j].type 
+		normProportions[population[j].normNumber, population[j].type + 1] += 1
+		# type1prop += population[j].type 
 		
 
 	end
 
-	type1prop = type1prop / length(population)
+	# type1prop = type1prop / length(population)
 
 	normProportions = normProportions / length(population)
 
-
-	statList[generation] = (normProportions, cooperationRate, 1.0 - type1prop, type1prop)
+	statList[generation] = (normProportions, cooperationRate)
+	# statList[generation] = (normProportions, cooperationRate, 1.0 - type1prop, type1prop)
 	return statList
 
 end
@@ -134,12 +134,12 @@ end
 
 
 function updateReps!(reputations, population, a,b,action, perpetratorNorms, relativeNorms, uvisibility)
-	
 	if relativeNorms
+		normInd = 1
 		if rand() < uvisibility
-			normInd = 1 + abs(population[a].type - population[b].type)
-		else
-			normInd = 1
+			if population[a].type != population[b].type
+				normInd = 2
+			end
 		end
 	elseif ! perpetratorNorms
 		normInd = population[b].type + 1 #COOL OPTIONS HERE
@@ -263,6 +263,8 @@ function evolve(parameterDictionary)
 	PROGRESSVERBOSE = parameterDictionary["PROGRESSVERBOSE"]
 	PROGRESSVERBOSE::Bool
 
+	NUMGROUPS = parameterDictionary["NUMGROUPS"]
+	NUMGROUPS::Int
 	NUMAGENTSPERNORM = parameterDictionary["NUMAGENTSPERNORM"]
 	NUMAGENTSPERNORM::Int
 	NUMAGENTS = length(NORMS) * NUMAGENTSPERNORM
@@ -310,7 +312,7 @@ function evolve(parameterDictionary)
 
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [Agent(i%2, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	population = [Agent(i%NUMGROUPS, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
 	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
@@ -320,8 +322,8 @@ function evolve(parameterDictionary)
 	# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
 
 
-	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS)), 0.0,0.0,0.0) for i in 1:NUMGENERATIONS]
-	statistics::Array{Tuple{Array{Float64,1}, Float64, Float64, Float64},1}
+	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS), NUMGROUPS), 0.0) for i in 1:NUMGENERATIONS]
+	statistics::Array{Tuple{Array{Float64,2}, Float64},1}
 
 	mostRecentImgMatrix = LinearAlgebra.zeros(Float64, length(NORMS), length(NORMS))
 
@@ -401,7 +403,7 @@ function evolve(parameterDictionary)
 
 		cooperationRate = cooperationRate / cooperationRateDenominator
 
-		statistics = generateStatistics!(statistics, n, population, cooperationRate)
+		statistics = generateStatistics!(statistics, n, population, NUMGROUPS, cooperationRate)
 
 
 		#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
@@ -419,12 +421,13 @@ function evolve(parameterDictionary)
 
 			inter = rand() < intergroupUpdateP
 
-			if (ind2 - ind1) %2 == 0 && inter
+			#CHECK THIS, NOT SURE IF WORKS
+			if (ind2 - ind1) % NUMGROUPS == 0 && inter
 				ind2 = (ind2 + 1) % NUMAGENTS
-			elseif (ind2 - ind1) %2 == 1 && !inter
-				ind2 = (ind2 + 1) % NUMAGENTS
+			elseif (ind2 - ind1) % NUMGROUPS != 0 && !inter
+				ind2 = (ind2 + (NUMGROUPS - (ind2 - ind1) % NUMGROUPS)) % NUMAGENTS
 				if ind1 == ind2
-					ind2 = (ind2 + 2) % NUMAGENTS
+					ind2 = (ind2 + NUMGROUPS) % NUMAGENTS
 				end
 			end
 
@@ -476,7 +479,8 @@ function evolve(parameterDictionary)
 		end
 
 	end
-
+	println("Computing image matrix")
+	mostRecentImgMatrix = imageMatrix(reputations, population)
 
 	println("Completed Simulation")
 	return statistics, mostRecentImgMatrix
