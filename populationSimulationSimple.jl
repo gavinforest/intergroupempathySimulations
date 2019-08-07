@@ -191,69 +191,57 @@ function batchUpdate!(numagents,batchsize, reputations, population, perpetratorN
 	return cooperationRate
 end
 
-# function generation(NUMAGENTS, INTERACTIONSPERAGENT, PROGRESSVERBOSE, reputations, population, NUMIMITATE)
-# 	startTime = time_ns()
-# 	roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
-
-# 	cooperationRate = 0.0
-# 	cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
-
-# 	for i in 1:NUMAGENTS * BATCHSPERAGENT
-
-# 		cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, oneShotMatrix, roundPayoffs, cooperationRate)
-# 	end
-
-# 	cooperationRate = cooperationRate / cooperationRateDenominator
-
-# 	statistics = generateStatistics!(statistics, n, population, cooperationRate)
+function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, intergroupUpdateP, typeMigrate,w, imitationCoupling)
+	changed = Set()
+	numAgents = length(population)
 
 
-# 	#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
-# 	#creation of population. Beware changing that.
+	for i in 1:numImitate
+		ind1 = trunc(Int,ceil(rand() * numAgents)) 
+		ind2 = trunc(Int, ceil(rand() * numAgents)) 
+
+		inter = rand() < intergroupUpdateP
+		
+		ind1type = population[ind1].type
+		ind2type = population[ind2].type 
+		    
+		if ind2type != ind1type && inter
+			ind2 = rand(groupSets[ind1type])
+			ind2type = ind1type
+		end
+
+		if ind1 != ind2 && ! in(ind1, changed) && ! in(ind2, changed)
+
+			pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
+			if rand() < pCopy
+
+				if rand() < imitationCoupling
+					population[ind1].normNumber = population[ind2].normNumber
+				else
+					if rand() < 0.5
+						newNum = (population[ind1].normNumber & 15) + (population[ind2].normNumber & (255 - 15))
+					else
+						newNum = (population[ind2].normNumber & 15) + (population[ind1].normNumber & (255 - 15))
+					end
+
+					population[ind1].normNumber = population[ind2].normNumber
+				end
+
+				if typeMigrate
+					groupSets[ind1type] = setdiff(groupSets[ind1type], BitSet(ind1))
+					population[ind1].type = ind2type
+					groupSets[ind2type] = union(groupSets[ind2type], BitSet(ind1))
+					
+				end
+
+				# population[ind1].normNumber = population[ind2].normNumber
+				push!(changed, ind1)
+			end
+		end
+	end
+end
 
 
-# 	changed = Set()
-
-# 	for i in 1:NUMIMITATE
-# 		ind1 = trunc(Int,floor(rand() * NUMAGENTS))
-# 		ind2 = trunc(Int, floor(rand() * NUMAGENTS))
-
-# 		if ind1 != ind2 && ! in(ind1 + 1, changed) && ! in(ind2 + 1, changed)
-
-
-# 			ind1 += 1
-# 			ind2 += 1
-
-# 			pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
-# 			if rand() < pCopy
-# 				population[ind1].normNumber = population[ind2].normNumber
-# 				push!(changed, ind1)
-# 			end
-# 		end
-# 	end
-
-# 	#random drift applied uniformly to all individuals
-# 	for j in 1:NUMAGENTS
-# 		if rand() < ustrat
-# 			num = rand(1:length(NORMS))
-# 			population[j].normNumber = num
-# 		end
-
-# 		# if population[j].type == 0 && u01 > rand()
-# 		# 	population[j].type = 1
-# 		# elseif population[j].type == 1 && u10 > rand()
-# 		# 	population[j].type = 0
-# 		# end
-# 	end
-# 	endTime = time_ns()
-# 	elapsedSecs = (endTime - startTime) / 1.0e9
-# 	if PROGRESSVERBOSE
-# 		println("**Completed modeling generation: $n in $elapsedSecs seconds")
-# 		# println("statistics for this generration are: $(statistics[i])")
-# 	end
-
-
-# end
 
 
 println("Number of norms: $(length(NORMS))")
@@ -305,6 +293,17 @@ function evolve(parameterDictionary)
 	uvisibility::Float64
 	imitationCoupling = parameterDictionary["imitationCoupling"]
 	imitationCoupling::Float64
+	typeImitate = parameterDictionary["typeImitate"]
+	typeImitate::Bool
+	establishEquilibrium = parameterDictionary["establishEquilibrium"]
+	establishEquilibrium::Bool
+
+	if establishEquilibrium
+		finalu = uvisibility
+		uvisibility = 0.0
+	end
+
+
 
 
 
@@ -313,6 +312,10 @@ function evolve(parameterDictionary)
 
 	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
 	population = [Agent(i%NUMGROUPS, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+	groupSets = tuple([BitSet() for i in 1:NUMGROUPS]...)
+	for i in 1:NUMAGENTS
+		union!(groupSets[population[i].type + 1], BitSet(i))
+	end
 	# arguments are: type, ID, normNumber (referring to index in norm list)
 
 	# println("empathy matrix: $empathyMatrix")
@@ -335,70 +338,16 @@ function evolve(parameterDictionary)
 		cooperationRate = 0.0
 		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
+
+		if establishEquilibrium && (n > 3000)
+			uvisibility = finalu
+		end
+
+
 		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
 			cooperationRate = batchUpdate!(NUMAGENTS, BATCHSIZE, reputations, population, perpetratorNorms, relativeNorms, uvisibility, oneShotMatrix, roundPayoffs, cooperationRate)
-
-			# a = trunc(Int, ceil(rand() * NUMAGENTS))
-			# b = 0
-			# action = 0
-
-			# for j in 1:BATCHSIZE
-
-			# #agent
-
-			# 	b = trunc(Int, ceil(rand() * NUMAGENTS))
-			# 	#adversary
-
-			# 	bRep = reputations[population[a].normNumber, b]
-
-			# 	action = bRep
-			# 	# action = moveError(action, Ecoop)
-
-			# 	aPayoff, bPayoff = oneShotMatrix[action + 1]
-
-			# 	roundPayoffs[a] += aPayoff
-			# 	roundPayoffs[b] += bPayoff
-
-			# 	if a == b
-			# 		# for j in 1:length(NORMS)
-			# 		# 	jsview = reputations[j,b]
-			# 		# 	if ! perpetratorNorms
-			# 		# 		normInd = population[b].type + 1 #COOL OPTIONS HERE
-			# 		# 	else
-			# 		# 		normInd = population[a].type + 1
-			# 		# 	end
-
-			# 		# 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
-			# 		# 	reputations[j,a] = newrep
-			# 		# end
-			# 		updateReps!(reputations, a, b, action, perpetratorNorms)
-			# 	end
-
-			# 	cooperationRate += action
-
-			# end
-
-			# # updateReps!(reputations, a, b,action)
-			# # updates = SharedArray{Int8,1}((length(NORMS)))
-			# # for j in 1:length(NORMS)
-			# # 	jsview = reputations[j,b]
-			# # 	if ! perpetratorNorms
-			# # 		normInd = population[b].type + 1 #COOL OPTIONS HERE
-			# # 	else
-			# # 		normInd = population[a].type + 1
-			# # 	end
-			# # 	# println("NORMS[j]: $(NORMS[j])")
-			# # 	newrep = NORMS[j][normInd][action + 1, jsview + 1]
-			# # 	reputations[j,a] = newrep
-			# # end
-			# updateReps!(reputations, a, b, action, perpetratorNorms)
-			# reputations[:,a] = updates
-
-
-			# newrep = population[j].norms[normInd][agentAction, judgesview]
-
-			#strategy specific coop rate calculation
+			
 		end
 
 		cooperationRate = cooperationRate / cooperationRateDenominator
@@ -413,49 +362,7 @@ function evolve(parameterDictionary)
 			mostRecentImgMatrix = imageMatrix(reputations, population)
 		end
 
-		changed = Set()
-
-		for i in 1:NUMIMITATE
-			ind1 = trunc(Int,floor(rand() * NUMAGENTS))
-			ind2 = trunc(Int, floor(rand() * NUMAGENTS))
-
-			inter = rand() < intergroupUpdateP
-
-			#CHECK THIS, NOT SURE IF WORKS
-			if (ind2 - ind1) % NUMGROUPS == 0 && inter
-				ind2 = (ind2 + 1) % NUMAGENTS
-			elseif (ind2 - ind1) % NUMGROUPS != 0 && !inter
-				ind2 = (ind2 + (NUMGROUPS - (ind2 - ind1) % NUMGROUPS)) % NUMAGENTS
-				if ind1 == ind2
-					ind2 = (ind2 + NUMGROUPS) % NUMAGENTS
-				end
-			end
-
-			if ind1 != ind2 && ! in(ind1 + 1, changed) && ! in(ind2 + 1, changed)
-
-				ind1 += 1
-				ind2 += 1
-
-				pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
-				if rand() < pCopy
-
-					if rand() < imitationCoupling
-						population[ind1].normNumber = population[ind2].normNumber
-					else
-						if rand() < 0.5
-							newNum = (population[ind1].normNumber & 15) + (population[ind2].normNumber & (255 - 15))
-						else
-							newNum = (population[ind2].normNumber & 15) + (population[ind1].normNumber & (255 - 15))
-						end
-
-						population[ind1].normNumber = population[ind2].normNumber
-					end
-
-					# population[ind1].normNumber = population[ind2].normNumber
-					push!(changed, ind1)
-				end
-			end
-		end
+		imitationUpdate!(population, roundPayoffs, groupSets, NUMIMITATE, intergroupUpdateP, typeImitate, w, imitationCoupling)
 
 
 		#random drift applied uniformly to all individuals
