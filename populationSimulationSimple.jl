@@ -1,5 +1,6 @@
 using Distributed
 import LinearAlgebra
+import StatsBase
 
 
 const DEBUG = true
@@ -93,11 +94,12 @@ end
 function generateStatistics!(statList,generation, population, numGroups, cooperationRate)
 	normProportions = LinearAlgebra.zeros(Float64, length(NORMS), numGroups)
 	# type1prop = 0
+	typeNums = [0 for i in 1:numGroups]
+	typeNums::Array{Int,1}
 
 	for j in 1:length(population)
 		normProportions[population[j].normNumber, population[j].type + 1] += 1
-		# type1prop += population[j].type 
-		
+		typeNums[population[j].type + 1] += 1
 
 	end
 
@@ -105,7 +107,7 @@ function generateStatistics!(statList,generation, population, numGroups, coopera
 
 	normProportions = normProportions / length(population)
 
-	statList[generation] = (normProportions, cooperationRate)
+	statList[generation] = (normProportions, cooperationRate, typeNums)
 	# statList[generation] = (normProportions, cooperationRate, 1.0 - type1prop, type1prop)
 	return statList
 
@@ -191,53 +193,116 @@ function batchUpdate!(numagents,batchsize, reputations, population, perpetratorN
 	return cooperationRate
 end
 
+function getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
+	ind1 = trunc(Int,ceil(rand() * numAgents)) 
+	ind2 = trunc(Int, ceil(rand() * numAgents)) 
+
+	inter = rand() < intergroupUpdateP
+	
+	ind1type = population[ind1].type
+	ind2type = population[ind2].type 
+	    
+	if ind2type != ind1type && inter
+		ind2 = rand(groupSets[ind1type])
+		ind2type = ind1type
+	end
+
+	return ind1,ind2
+end
+
+function copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, groupSets)
+	if rand() < imitationCoupling
+		population[ind1].normNumber = population[ind2].normNumber
+	else
+		if rand() < 0.5
+			newNum = (population[ind1].normNumber & 15) + (population[ind2].normNumber & (255 - 15))
+		else
+			newNum = (population[ind2].normNumber & 15) + (population[ind1].normNumber & (255 - 15))
+		end
+
+		population[ind1].normNumber = newNum
+	end
+
+	if typeMigrate
+		groupSets[ind1type] = setdiff(groupSets[ind1type], BitSet(ind1))
+		population[ind1].type = ind2type
+		groupSets[ind2type] = union(groupSets[ind2type], BitSet(ind1))
+		
+	end
+end
+
 function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, intergroupUpdateP, typeMigrate,w, imitationCoupling)
 	changed = Set()
 	numAgents = length(population)
 
 
 	for i in 1:numImitate
-		ind1 = trunc(Int,ceil(rand() * numAgents)) 
-		ind2 = trunc(Int, ceil(rand() * numAgents)) 
-
-		inter = rand() < intergroupUpdateP
-		
-		ind1type = population[ind1].type
-		ind2type = population[ind2].type 
-		    
-		if ind2type != ind1type && inter
-			ind2 = rand(groupSets[ind1type])
-			ind2type = ind1type
-		end
+		ind1,ind2 = getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
 
 		if ind1 != ind2 && ! in(ind1, changed) && ! in(ind2, changed)
 
 			pCopy = 1.0 / (1.0 + exp( (- w) * (roundPayoffs[ind2] - roundPayoffs[ind1])))
+			
 			if rand() < pCopy
 
-				if rand() < imitationCoupling
-					population[ind1].normNumber = population[ind2].normNumber
-				else
-					if rand() < 0.5
-						newNum = (population[ind1].normNumber & 15) + (population[ind2].normNumber & (255 - 15))
-					else
-						newNum = (population[ind2].normNumber & 15) + (population[ind1].normNumber & (255 - 15))
-					end
-
-					population[ind1].normNumber = population[ind2].normNumber
-				end
-
-				if typeMigrate
-					groupSets[ind1type] = setdiff(groupSets[ind1type], BitSet(ind1))
-					population[ind1].type = ind2type
-					groupSets[ind2type] = union(groupSets[ind2type], BitSet(ind1))
-					
-				end
+				copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, groupSets)
 
 				# population[ind1].normNumber = population[ind2].normNumber
 				push!(changed, ind1)
 			end
 		end
+	end
+end
+
+function deathBirthUpdate(population, roundPayoffs, numImitate, w)
+	numAgents = length(population)
+
+	payoffWeights = StatsBase.Weights(roundPayoffs)
+	uniformWeights = StatsBase.Weights(LinearAlgebra.ones(Float64, numAgents) / numAgents)
+
+	killed = StatsBase.sample(1:numAgents, uniformWeights, numImitate, replace=false)
+	replacements = StatsBase.sample(1:numAgents, payoffWeights, numImitate)
+
+	updates = []
+
+	for i in 1:numAgents
+
+		append!(updates, (killed[i], population[replacements[i]]))
+	end
+
+	for update in updates
+		target, agent = update
+		population[target] = agent
+	end
+end
+
+mutable struct EvolutionState 
+	population::Array{Agent, 1}	
+	reputations::Array{Int8,2}
+	statistics::Array{Tuple{Array{Float64,2}, Float64, Array{Int,1}},1}
+end
+
+function calculateGroupSets(population, numGroups)
+	groupSets = tuple([BitSet() for i in 1:numGroups]...)
+	for i in 1:length(population)
+		union!(groupSets[population[i].type + 1], BitSet(i))
+	end
+	return groupSets
+end
+
+function mutatePopulation!(population, ustrat)
+	#random drift applied uniformly to all individuals
+	for j in 1:length(population)
+		if rand() < ustrat
+			num = trunc(Int, ceil(rand() * length(NORMS)))
+			population[j].normNumber = num
+		end
+
+		# if population[j].type == 0 && u01 > rand()
+		# 	population[j].type = 1
+		# elseif population[j].type == 1 && u10 > rand()
+		# 	population[j].type = 0
+		# end
 	end
 end
 
@@ -247,7 +312,7 @@ end
 println("Number of norms: $(length(NORMS))")
 println("Number of processes: $(nprocs())")
 
-function evolve(parameterDictionary)
+function evolve(parameterDictionary, state = Nothing, returnState = false)
 	PROGRESSVERBOSE = parameterDictionary["PROGRESSVERBOSE"]
 	PROGRESSVERBOSE::Bool
 
@@ -297,6 +362,9 @@ function evolve(parameterDictionary)
 	typeImitate::Bool
 	establishEquilibrium = parameterDictionary["establishEquilibrium"]
 	establishEquilibrium::Bool
+	updateMethod = parameterDictionary["updateMethod"]
+	updateMethod::String 
+
 
 	if establishEquilibrium
 		finalu = uvisibility
@@ -304,31 +372,34 @@ function evolve(parameterDictionary)
 	end
 
 
+	if state == Nothing
+		# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
+		population = [Agent(i%NUMGROUPS, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
+		# arguments are: type, ID, normNumber (referring to index in norm list)
 
+		# println("empathy matrix: $empathyMatrix")
 
+		# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
+		reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
+		# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
 
-	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
+		tmpArr = [0 for i in 1:NUMGROUPS]
 
+		statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS), NUMGROUPS), 0.0, tmpArr) for i in 1:NUMGENERATIONS]
+		statistics::Array{Tuple{Array{Float64,2}, Float64, Array{Int,1}},1}
 
-	# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
-	population = [Agent(i%NUMGROUPS, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
-	groupSets = tuple([BitSet() for i in 1:NUMGROUPS]...)
-	for i in 1:NUMAGENTS
-		union!(groupSets[population[i].type + 1], BitSet(i))
+		state = EvolutionState(population, reputations, statistics)
+	else
+		population = state.population
+		reputations = state.reputations
+		statistics = state.statistics
 	end
-	# arguments are: type, ID, normNumber (referring to index in norm list)
 
-	# println("empathy matrix: $empathyMatrix")
-
-	# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
-	reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
-	# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
-
-
-	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS), NUMGROUPS), 0.0) for i in 1:NUMGENERATIONS]
-	statistics::Array{Tuple{Array{Float64,2}, Float64},1}
+	groupSets = calculateGroupSets(population, NUMGROUPS)
 
 	mostRecentImgMatrix = LinearAlgebra.zeros(Float64, length(NORMS), length(NORMS))
+
+	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
 
 
 	for n in 1:NUMGENERATIONS
@@ -352,7 +423,7 @@ function evolve(parameterDictionary)
 
 		cooperationRate = cooperationRate / cooperationRateDenominator
 
-		statistics = generateStatistics!(statistics, n, population, NUMGROUPS, cooperationRate)
+		generateStatistics!(statistics, n, population, NUMGROUPS, cooperationRate)
 
 
 		#imitation update. intergroupUpdateP calculations rely on parity of indices originating in original
@@ -361,23 +432,16 @@ function evolve(parameterDictionary)
 		if n == NUMGENERATIONS
 			mostRecentImgMatrix = imageMatrix(reputations, population)
 		end
-
-		imitationUpdate!(population, roundPayoffs, groupSets, NUMIMITATE, intergroupUpdateP, typeImitate, w, imitationCoupling)
-
-
-		#random drift applied uniformly to all individuals
-		for j in 1:NUMAGENTS
-			if rand() < ustrat
-				num = trunc(Int, ceil(rand() * length(NORMS)))
-				population[j].normNumber = num
-			end
-
-			# if population[j].type == 0 && u01 > rand()
-			# 	population[j].type = 1
-			# elseif population[j].type == 1 && u10 > rand()
-			# 	population[j].type = 0
-			# end
+		if updateMethod == "imitationUpdate"
+			imitationUpdate!(population, roundPayoffs, groupSets, NUMIMITATE, intergroupUpdateP, typeImitate, w, imitationCoupling)
+		elseif updateMethod == "deathBirthUpdate"
+			deathBirthUpdate(population, roundPayoffs, NUMIMITATE, w)
+		else
+			println("BAD UPDATE METHOD: $updateMethod")
 		end
+
+		mutatePopulation!(population, ustrat)
+		
 		endTime = time_ns()
 		elapsedSecs = (endTime - startTime) / 1.0e9
 		if PROGRESSVERBOSE
@@ -390,7 +454,12 @@ function evolve(parameterDictionary)
 	mostRecentImgMatrix = imageMatrix(reputations, population)
 
 	println("Completed Simulation")
-	return statistics, mostRecentImgMatrix
+	if returnState
+		rstate = EvolutionState(population, reputations, statistics)
+		return rstate, mostRecentImgMatrix
+	else
+		return statistics, mostRecentImgMatrix
+	end
 end
 
 function testEvolve()
