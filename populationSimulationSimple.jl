@@ -450,8 +450,11 @@ function evolve(parameterDictionary, state = Nothing, returnState = false)
 		end
 
 	end
+
+
 	println("Computing image matrix")
 	mostRecentImgMatrix = imageMatrix(reputations, population)
+	
 
 	println("Completed Simulation")
 	if returnState
