@@ -1,3 +1,7 @@
+module simulationUpdateRules
+
+export imitationUpdate!, deathBirthUpdate!, calculateGroupSets, mutatePopulation!
+
 function getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
 	ind1 = trunc(Int,ceil(rand() * numAgents)) 
 	ind2 = trunc(Int, ceil(rand() * numAgents)) 
@@ -59,7 +63,7 @@ function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, inter
 	end
 end
 
-function deathBirthUpdate(population, roundPayoffs, numImitate, w)
+function deathBirthUpdate!(population, roundPayoffs, numImitate, w)
 	numAgents = length(population)
 
 	payoffWeights = StatsBase.Weights(roundPayoffs)
@@ -103,5 +107,7 @@ function mutatePopulation!(population, ustrat, NORMS)
 		# 	population[j].type = 0
 		# end
 	end
+
+end
 
 end

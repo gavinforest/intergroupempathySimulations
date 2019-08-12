@@ -1,4 +1,6 @@
+module simulationAgentInteractions
 
+export moveError, updateReps!, batchUpdate!
 
 function moveError(move, ec)
 	if move == 0
@@ -66,4 +68,7 @@ function batchUpdate!(numagents,batchsize, reputations, population, perpetratorN
 	updateReps!(reputations,population, a, b, action, perpetratorNorms, relativeNorms, uvisibility, NORMS)
 
 	return cooperationRate
+end
+
+
 end

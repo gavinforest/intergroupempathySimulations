@@ -1,13 +1,18 @@
+module cacheTools
+
+export cacheState, getState, setupCache
+
+
 using simulationStructs
 using HDF5
 import JSON
 
 const cacheDir = "./cached/"
-const ledgerFilename = cacheDir + "ledger.json"
+const ledgerFilename = cacheDir * "ledger.json"
 
 function genFilename(root)
 	ts = string(time_ns())
-	return cacheDir + ts + root + ".jld"
+	return cacheDir * ts * root * ".jld"
 end
 
 
@@ -48,20 +53,20 @@ end
 
 
 function saveState(filename, evoState)
-	h5open(filename + ".reputations.hdf5", "w") do file
+	h5open(filename * ".reputations.hdf5", "w") do file
 		write(file, "reputations", evoState.reputations)
 	end
-	open(filename + ".json", "w") do file
+	open(filename * ".json", "w") do file
 		d = Dict("statistics" => statisticsToArrayDict(statistics), "population" => populationToDictionary(population))
 		JSON.print(file, d)
 	end
 end
 
 function readState(filename)
-	reputations = h5open(filename + ".reputations.hdf5", "r") do file
+	reputations = h5open(filename * ".reputations.hdf5", "r") do file
 		read(file, "reputations")
 	end
-	d = JSON.parsefile(filename + ".json")
+	d = JSON.parsefile(filename * ".json")
 	stats = d["statistics"]
 	population = d["population"]
 	population = map(dictToAgent, population)
@@ -80,10 +85,10 @@ end
 
 function setupCache(name, ID, simparameters, logisticparams)
 	if ! name in readdir(cacheDir)
-		mkdir(cacheDir + name)
+		mkdir(cacheDir * name)
 	end
-	if ! string(ID) in readdir(cacheDir + name)
-		mkdir(cacheDir + name + "/" + string(ID))
+	if ! string(ID) in readdir(cacheDir * name)
+		mkdir(cacheDir * name * "/" * string(ID))
 		ledger = JSON.parsefile(ledgerFilename)
 		if ! name in ledger
 			ledger[name] = Dict()
@@ -114,7 +119,7 @@ function addToLedger(name, ID, generation, filename)
 end
 
 function cacheState(name, ID, generation, state)
-	filename = cacheDir + name + "/" + string(ID) + "/" + string(time_ns())
+	filename = cacheDir * name * "/" * string(ID) * "/" * string(time_ns())
 	saveState(filename, state)
 	addToLedger(name, ID, generation, filename)
 end
@@ -130,5 +135,7 @@ function getState(name, ID, generation)
 	return readState(fname)
 end
 
+
+end
 
 

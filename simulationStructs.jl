@@ -1,3 +1,7 @@
+module simulationStructs
+
+export Agent, genSingleNorm, genNorm, EvolutionState
+
 import LinearAlgebra
 mutable struct Agent 
 	type::Int
@@ -37,4 +41,7 @@ mutable struct EvolutionState
 	population::Array{Agent, 1}	
 	reputations::Array{Int8,2}
 	statistics::Array{Tuple{Array{Float64,2}, Float64, Array{Int,1}},1}
+end
+
+
 end

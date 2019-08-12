@@ -1,16 +1,23 @@
+push!(LOAD_PATH, "/Users/gavin/Documents/Stay Loose/Research/Evolutionary Dynamics/Inter-group empathy/Integroup Empathy Repository")
+
 using Distributed
 import LinearAlgebra
-using cacheTools
+
+# include("cacheTools.jl")
+import .cacheTools
 
 addprocs(5)
 
 @everywhere begin
-    include("populationSimulationSimple.jl")
+	push!(LOAD_PATH, "/Users/gavin/Documents/Stay Loose/Research/Evolutionary Dynamics/Inter-group empathy/Integroup Empathy Repository")
+
+    # include("simulationEngine.jl")
+    import .simulationEngine
 
 	function singleRun(parameters)
 		starting = time_ns()
 		println("Starting Job")
-		res = evolve(parameters...)
+		res = simulationEngine.evolve(parameters...)
 		t = (time_ns() - starting) / 1.0e9
 		println("Processed Job in $t seconds")
 		return res
@@ -85,12 +92,12 @@ end
 function cachingLoop(cacheChannel)
 	while true
 		toCache = take!(cacheChannel)
-		cacheState(toCache...)
+		cacheTools.cacheState(toCache...)
 	end
 end
 
 function makeRunArgument(name,i, dict, channel)
-	return (dict["simparameters"], dict["logisticsparameters"], Dict("name" => name, "processID" => i), channel)
+	return (dict["simparameters"], dict["runparameters"], Dict("name" => name, "processID" => i), channel)
 end
 
 function evolveDistributed(name, dictionaryList)
@@ -107,6 +114,7 @@ function evolveDistributed(name, dictionaryList)
 			println("ID: $(arg[3]["processID"])")
 			println("Quitting!")
 			return
+		end
 	end
 		
 	println("Set up caches")

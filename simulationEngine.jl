@@ -1,13 +1,22 @@
+module simulationEngine
+
+export evolve
+
 using Distributed
 import LinearAlgebra
 import StatsBase
 
 # ------ Local File Imports ------
 
-using simulationStructs
-using simulationUpdateRules
-using simulationAgentInteractions
-using cacheTools
+# include("simulationStructs.jl")
+# include("simulationUpdateRules.jl")
+# include("simulationAgentInteractions.jl")
+# include("cacheTools.jl")
+
+using .simulationStructs
+using .simulationUpdateRules
+using .simulationAgentInteractions
+using .cacheTools
 
 
 
@@ -241,4 +250,6 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 	end
 end
 
+
+end
 
