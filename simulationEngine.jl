@@ -8,10 +8,10 @@ import StatsBase
 
 # ------ Local File Imports ------
 
-# include("simulationStructs.jl")
-# include("simulationUpdateRules.jl")
-# include("simulationAgentInteractions.jl")
-# include("cacheTools.jl")
+include("simulationStructs.jl")
+include("simulationUpdateRules.jl")
+include("simulationAgentInteractions.jl")
+include("cacheTools.jl")
 
 using .simulationStructs
 using .simulationUpdateRules
@@ -134,9 +134,11 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 	updateMethod::String 
 
 	cachePeriod = NUMGENERATIONS
-	if "cachePeriod" in processSpecs
-		cachePeriod = processSpecs["cachePeriod"]
+	if haskey(runParameters, "cachePeriod")
+		cachePeriod = runParameters["cachePeriod"]
+		cachePeriod::Int
 	end
+	println("Cacheperiod: $cachePeriod")
 
 
 	if establishEquilibrium
@@ -144,10 +146,11 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		uvisibility = 0.0
 	end
 
+	tmpArr = [0 for i in 1:NUMGROUPS]
 	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS), NUMGROUPS), 0.0, tmpArr) for i in 1:NUMGENERATIONS]
 	statistics::Array{Tuple{Array{Float64,2}, Float64, Array{Int,1}},1}
 
-	if "startState" in runParameters
+	if  haskey(runParameters, "startState")
 		startName = runParameters["startState"]["name"]
 		startID = runParameters["startState"]["ID"]
 		startGen = runParameters["startState"]["generation"]
@@ -163,8 +166,6 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 		reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
 		# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
-
-		tmpArr = [0 for i in 1:NUMGROUPS]
 
 
 		state = EvolutionState(population, reputations, statistics)
@@ -228,7 +229,8 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 			# println("statistics for this generration are: $(statistics[i])")
 		end
 
-		if n % cachePeriod == 0
+		if (n % cachePeriod == 1) && (n > 1)
+			println("Caching")
 			cacheState = EvolutionState(population, reputations, statistics[(n - cachePeriod):n])
 			toCache = (processSpecs["name"], processSpecs["processID"], n, cacheState)
 			put!(cacheChannel, toCache)

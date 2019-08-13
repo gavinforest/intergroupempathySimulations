@@ -3,7 +3,8 @@ module cacheTools
 export cacheState, getState, setupCache
 
 
-using simulationStructs
+include("simulationStructs.jl")
+using .simulationStructs
 using HDF5
 import JSON
 
@@ -82,28 +83,43 @@ function readStackStates(filenames)
 	return EvolutionState(pop, reps, stats)
 end
 
+function searchDir(dir, name)
+	everything = readdir(dir)
+	if length(everything) == 0
+		return false
+	end
+	occurences = map(x -> x == name, everything)
+	if length(occurences) == 1
+		return occurences[1]
+	else
+		return reduce((y,z) -> y || z, occurences)
+	end
+end
 
 function setupCache(name, ID, simparameters, logisticparams)
-	if ! name in readdir(cacheDir)
+	IDstring = string(ID)
+	if ! searchDir(cacheDir, name)
 		mkdir(cacheDir * name)
 	end
-	if ! string(ID) in readdir(cacheDir * name)
-		mkdir(cacheDir * name * "/" * string(ID))
-		ledger = JSON.parsefile(ledgerFilename)
-		if ! name in ledger
-			ledger[name] = Dict()
+	if ! searchDir(cacheDir * name, IDstring)
+		mkdir(cacheDir * name * "/" * IDstring)
+	end
+
+	ledger = JSON.parsefile(ledgerFilename)
+	if ! haskey(ledger, name)
+		ledger[name] = Dict()
+	end
+	if ! haskey(ledger[name], IDstring)
+		ledger[name][IDstring] = Dict()
+		ledger[name][IDstring]["simparameters"] = simparameters
+		ledger[name][IDstring]["runparameters"] = logisticparams
+		ledger[name][IDstring]["generations"] = Dict()
+		open(ledgerFilename, "w") do file
+			JSON.print(file, ledger)
+			println("JSON printed to ledger")
 		end
-		if ! ID in ledger[name]
-			ledger[name][ID] = Dict()
-			ledger["simparameters"] = simparameters
-			ledger["runparameters"] = logisticparams
-			ledger["generations"] = Dict()
-			open(ledgerFilename, "w") do file
-				JSON.print(file, ledger)
-			end
-		else 
-			return "Already created"
-		end
+	else 
+		return "Already created"
 	end
 	return "Success"
 end
@@ -111,22 +127,25 @@ end
 
 
 function addToLedger(name, ID, generation, filename)
+	IDstring = string(ID)
 	ledger = JSON.parsefile(ledgerFilename)
-	ledger[name][ID]["generations"][generation] = filename
+	ledger[name][IDstring]["generations"][generation] = filename
 	open(ledgerFilename, "w") do file
 		JSON.print(file, ledger)
 	end
 end
 
 function cacheState(name, ID, generation, state)
-	filename = cacheDir * name * "/" * string(ID) * "/" * string(time_ns())
+	IDstring = string(ID)
+	filename = cacheDir * name * "/" * IDstring * "/" * string(time_ns())
 	saveState(filename, state)
 	addToLedger(name, ID, generation, filename)
 end
 
 function getFilename(name, ID, generation)
+	IDstring = string(ID)
 	ledger = JSON.parsefile(ledgerFilename)
-	return ledger[name][ID]["generations"][generation]
+	return ledger[name][IDsring]["generations"][generation]
 
 end
 

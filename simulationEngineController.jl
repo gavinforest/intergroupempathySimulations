@@ -3,7 +3,7 @@ push!(LOAD_PATH, "/Users/gavin/Documents/Stay Loose/Research/Evolutionary Dynami
 using Distributed
 import LinearAlgebra
 
-# include("cacheTools.jl")
+include("cacheTools.jl")
 import .cacheTools
 
 addprocs(5)
@@ -11,7 +11,7 @@ addprocs(5)
 @everywhere begin
 	push!(LOAD_PATH, "/Users/gavin/Documents/Stay Loose/Research/Evolutionary Dynamics/Inter-group empathy/Integroup Empathy Repository")
 
-    # include("simulationEngine.jl")
+    include("simulationEngine.jl")
     import .simulationEngine
 
 	function singleRun(parameters)
@@ -93,6 +93,7 @@ function cachingLoop(cacheChannel)
 	while true
 		toCache = take!(cacheChannel)
 		cacheTools.cacheState(toCache...)
+		println("Cached in caching loop")
 	end
 end
 
@@ -101,13 +102,15 @@ function makeRunArgument(name,i, dict, channel)
 end
 
 function evolveDistributed(name, dictionaryList)
-	cacheChannel = Channel{Tuple}(10)
+	cacheChannel = RemoteChannel(() -> Channel{Tuple}(10))
 
-	args = map((i,x) -> makeRunArgument(name, i, x, cacheChannel), enumerate(dictionaryList))
+	# mapable = (i,x) -> makeRunArgument(name, i, x, cacheChannel)
+
+	args = [makeRunArgument(name, i , x, cacheChannel) for (i,x) in  enumerate(dictionaryList)]
 
 	println("Beginning to set up cache for run")
 	for arg in args
-		ret = setupCache(name, arg[3]["processID"], arg[1], arg[2])
+		ret = cacheTools.setupCache(name, arg[3]["processID"], arg[1], arg[2])
 		if ret == "Already created"
 			println("Dangerous situation -- setupCache returned already created on:")
 			println("name: $name")
