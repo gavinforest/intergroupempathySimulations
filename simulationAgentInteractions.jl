@@ -33,7 +33,20 @@ function updateReps!(reputations, population, a,b,action, perpetratorNorms, rela
 	end
 end
 
-function batchUpdate!(numagents,batchsize, reputations, population, perpetratorNorms, relativeNorms, uvisibility, oneShotMatrix, roundPayoffs, cooperationRate, NORMS)
+function batchUpdate!(simparams, reputations, population, groupSets, roundPayoffs, cooperationRate, NORMS)
+	numagents::Int = length(NORMS) * simparams["NUMAGENTS"]
+	batchsize::Int = simparams["BATCHSIZE"]
+
+	gameBenefit::Float64 = simulationParameters["gameBenefit"]
+	gameCost::Float64 = simulationParameters["gameCost"]
+		
+	oneShotMatrix = [(0.0, 0.0),(- gameCost, gameBenefit - gameCost)]
+
+	
+	perpetratorNorms::Bool = simulationParameters["perpetratorNorms"]
+	relativeNorms::Bool = simulationParameters["relativeNorms"]
+	uvisibility::Float64 = simulationParameters["uvisibility"]
+
 	a = trunc(Int, ceil(rand() * numagents))
 	normNumber = population[a].normNumber
 	b = 0

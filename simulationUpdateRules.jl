@@ -40,7 +40,14 @@ function copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, grou
 	end
 end
 
-function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, intergroupUpdateP, typeMigrate,w, imitationCoupling)
+function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, simParams)
+	intergroupUpdateP::Float64 = simParams["intergroupUpdateP"]
+	typeMigrate::Bool = simParams["typeMigrate"]
+	w::Float64= simParams["w"]
+	imitationCoupling::Float64= simParams["imitationCoupling"]
+
+
+
 	changed = Set()
 	numAgents = length(population)
 
@@ -63,7 +70,9 @@ function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, inter
 	end
 end
 
-function deathBirthUpdate!(population, roundPayoffs, numImitate, w)
+function deathBirthUpdate!(population, roundPayoffs, numImitate, simParams)
+	w::Float64 = simParams["w"]
+
 	numAgents = length(population)
 
 	payoffWeights = StatsBase.Weights(roundPayoffs)
