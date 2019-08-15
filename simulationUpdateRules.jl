@@ -2,7 +2,10 @@ module simulationUpdateRules
 
 export imitationUpdate!, deathBirthUpdate!, calculateGroupSets, mutatePopulation!
 
-function getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
+include("simulationUtilities.jl")
+using .simulationUtilities
+
+function getAgentPair(numAgents, intergroupUpdateP, groupBounds, population)
 	ind1 = trunc(Int,ceil(rand() * numAgents)) 
 	ind2 = trunc(Int, ceil(rand() * numAgents)) 
 
@@ -12,7 +15,7 @@ function getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
 	ind2type = population[ind2].type 
 	    
 	if ind2type != ind1type && inter
-		ind2 = rand(groupSets[ind1type])
+		ind2 = rand((groupBounds[ind1type]+1):groupBounds[ind1type + 1])
 		ind2type = ind1type
 	end
 
@@ -32,15 +35,21 @@ function copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, grou
 		population[ind1].normNumber = newNum
 	end
 
+	ind1type = population[ind1].type 
+	ind2type = population[ind2].type
+
+
 	if typeMigrate
-		groupSets[ind1type] = setdiff(groupSets[ind1type], BitSet(ind1))
+		# groupSets.memberSets[ind1type+1] = setdiff(groupSets.memberSets[ind1type+1], BitSet(ind1))
+		# groupSets.sizes[ind1type+1] -= 1
 		population[ind1].type = ind2type
-		groupSets[ind2type] = union(groupSets[ind2type], BitSet(ind1))
+		# groupSets.memberSets[ind2type] = union(groupSets.memberSets[ind2type], BitSet(ind1))
+		# groupSets.sizes[ind2type] += 1
 		
 	end
 end
 
-function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, simParams)
+function imitationUpdate!(population, roundPayoffs, groupBounds, numImitate, simParams)
 	intergroupUpdateP::Float64 = simParams["intergroupUpdateP"]
 	typeMigrate::Bool = simParams["typeMigrate"]
 	w::Float64= simParams["w"]
@@ -53,7 +62,7 @@ function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, simPa
 
 
 	for i in 1:numImitate
-		ind1,ind2 = getAgentPair(numAgents, intergroupUpdateP, groupSets, population)
+		ind1,ind2 = getAgentPair(numAgents, intergroupUpdateP, groupBounds, population)
 
 		if ind1 != ind2 && ! in(ind1, changed) && ! in(ind2, changed)
 
@@ -61,7 +70,7 @@ function imitationUpdate!(population, roundPayoffs, groupSets, numImitate, simPa
 			
 			if rand() < pCopy
 
-				copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, groupSets)
+				copyAgent!(ind1, ind2, population, imitationCoupling, typeMigrate, groupBounds)
 
 				# population[ind1].normNumber = population[ind2].normNumber
 				push!(changed, ind1)
@@ -99,7 +108,8 @@ function calculateGroupSets(population, numGroups)
 	for i in 1:length(population)
 		union!(groupSets[population[i].type + 1], BitSet(i))
 	end
-	return groupSets
+	sizes = map(length, groupSets)
+	return Groups(sizes, groupSets)
 end
 
 function mutatePopulation!(population, ustrat, NORMS)

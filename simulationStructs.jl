@@ -9,6 +9,11 @@ mutable struct Agent
 	normNumber::Int
 end
 
+mutable struct Groups
+	sizes::Array{Int, 1}
+	memberSets::Array{BitSet, 1}
+end
+
 function genSingleNorm(num)
 	nums = digits(num, base = 2, pad = 4)
 	mat = LinearAlgebra.zeros(Int, 2,2)

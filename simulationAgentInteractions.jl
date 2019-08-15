@@ -2,6 +2,11 @@ module simulationAgentInteractions
 
 export moveError, updateReps!, batchUpdate!
 
+include("simulationStructs.jl")
+include("simulationUtilities.jl")
+using .simulationStructs
+using .simulationUtiliies
+
 function moveError(move, ec)
 	if move == 0
 		return 0
@@ -33,7 +38,9 @@ function updateReps!(reputations, population, a,b,action, perpetratorNorms, rela
 	end
 end
 
-function batchUpdate!(simparams, reputations, population, groupSets, roundPayoffs, cooperationRate, NORMS)
+
+
+function batchUpdate!(simparams, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS)
 	numagents::Int = length(NORMS) * simparams["NUMAGENTS"]
 	batchsize::Int = simparams["BATCHSIZE"]
 
@@ -52,8 +59,13 @@ function batchUpdate!(simparams, reputations, population, groupSets, roundPayoff
 	b = 0
 	action = 0
 
+	groupSizes = [bounds[i] - bounds[i-1] for i in 2:length(groupBounds)]
+
+	groupProbs = calculateGroupProbs(simparams["groupweights"],  groupSizes, groupBounds)
+
+
 	for j in 1:batchsize
-		b = trunc(Int, ceil(rand() * numagents))
+		b = randomSelectGroupWeighted(groupProbs, groupBounds)
 		#adversary
 		action = reputations[normNumber, b]
 		# if !relativeNorms

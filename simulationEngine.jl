@@ -13,12 +13,14 @@ include("simulationUpdateRules.jl")
 include("simulationAgentInteractions.jl")
 include("cacheTools.jl")
 include("parameterTools.jl")
+include("simulationUtilities.jl")
 
 using .simulationStructs
 using .simulationUpdateRules
 using .simulationAgentInteractions
 using .cacheTools
 using .parameterTools
+using .simulationUtilities
 
 
 
@@ -83,9 +85,9 @@ println("Number of norms: $(length(NORMS))")
 println("Number of processes: $(nprocs())")
 
 function evolve(simulationParameters, runParameters, processSpecs, cacheChannel, state = Nothing, returnState = false,)
+	#Constants
 	PROGRESSVERBOSE = simulationParameters["PROGRESSVERBOSE"]
 	PROGRESSVERBOSE::Bool
-
 	NUMGROUPS = simulationParameters["NUMGROUPS"]
 	NUMGROUPS::Int
 	NUMAGENTSPERNORM = simulationParameters["NUMAGENTSPERNORM"]
@@ -97,43 +99,9 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 	BATCHSPERAGENT::Int
 	BATCHSIZE = simulationParameters["BATCHSIZE"]
 	BATCHSIZE::Int
-	# INTERACTIONSPERAGENT = 100
 	INTERACTIONSPERAGENT = BATCHSIZE * BATCHSPERAGENT
 	NUMIMITATE = simulationParameters["NUMIMITATE"]
 	NUMIMITATE::Int
-
-	# Eobs = 0.02
-	# Ecoop = simulationParameters["Ecoop"]
-	# Ecoop::Float64
-	# w = simulationParameters["w"]
-	# w::Float64
-	# ustrat = simulationParameters["ustrat"]
-	# ustrat::Float64
-	# utype = simulationParameters["utype"]
-	# utype::Float64
-	# # u01 = 0.0 #type mutation rate 0 -> 1
-	# # u10 = 0.0 #type mutation rate 1 -> 0
-	# gameBenefit = simulationParameters["gameBenefit"]
-	# gameBenefit::Float64
-
-	# gameCost = simulationParameters["gameCost"]
-	# gameCost::Float64
-	# intergroupUpdateP = simulationParameters["intergroupUpdateP"]
-	# intergroupUpdateP::Float64
-	# perpetratorNorms = simulationParameters["perpetratorNorms"]
-	# perpetratorNorms::Bool
-	# relativeNorms = simulationParameters["relativeNorms"]
-	# relativeNorms::Bool
-	# uvisibility = simulationParameters["uvisibility"]
-	# uvisibility::Float64
-	# imitationCoupling = simulationParameters["imitationCoupling"]
-	# imitationCoupling::Float64
-	# typeImitate = simulationParameters["typeImitate"]
-	# typeImitate::Bool
-	# establishEquilibrium = simulationParameters["establishEquilibrium"]
-	# establishEquilibrium::Bool
-	# updateMethod = simulationParameters["updateMethod"]
-	# updateMethod::String 
 
 	cachePeriod = NUMGENERATIONS
 	if haskey(runParameters, "cachePeriod")
@@ -142,11 +110,6 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 	end
 	println("Cacheperiod: $cachePeriod")
 
-
-	# if establishEquilibrium
-	# 	finalu = uvisibility
-	# 	uvisibility = 0.0
-	# end
 
 	tmpArr = [0 for i in 1:NUMGROUPS]
 	statistics = [ (LinearAlgebra.zeros(Float64, length(NORMS), NUMGROUPS), 0.0, tmpArr) for i in 1:NUMGENERATIONS]
@@ -157,9 +120,12 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		startID = runParameters["startState"]["ID"]
 		startGen = runParameters["startState"]["generation"]
 		state = getState(startName, startID, startGen)
+		groupBounds = sortPopulation!(state.population, state.reputations, NUMGROUPS)
 
 	elseif state == Nothing
 		# intergroupUpdateP relies on the alternation of types from the first argument. Change with care.
+
+
 		population = [Agent(i%NUMGROUPS, i + 1, (i % length(NORMS)) + 1) for i in 0:(NUMAGENTS-1)]
 		# arguments are: type, ID, normNumber (referring to index in norm list)
 
@@ -168,6 +134,8 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		# reputations = rand([0,1], NUMAGENTS, NUMAGENTS)
 		reputations = LinearAlgebra.ones(Int8, length(NORMS), NUMAGENTS)
 		# reputations = SharedArray{Int8,2}((length(NORMS), NUMAGENTS))
+
+		groupBounds = sortPopulation!(population, reputations, NUMGROUPS)
 
 
 		state = EvolutionState(population, reputations, statistics)
@@ -186,6 +154,7 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 
 		if haskey(n, runParameters)
 			simulationParameters = modifyParameters(simulationParameters, state, runParameters[n])
+		end
 
 		startTime = time_ns()
 		roundPayoffs = LinearAlgebra.zeros(Float64, NUMAGENTS)
@@ -194,14 +163,10 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
 
-		# if establishEquilibrium && (n > 3000)
-		# 	uvisibility = finalu
-		# end
-
 
 		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
-			cooperationRate = batchUpdate!(simulationParameters, reputations, population, groupSets, roundPayoffs, cooperationRate, NORMS)
+			cooperationRate = batchUpdate!(simulationParameters, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS)
 			
 		end
 
@@ -217,7 +182,7 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 			mostRecentImgMatrix = imageMatrix(reputations, population)
 		end
 		if updateMethod == "imitationUpdate"
-			imitationUpdate!(population, roundPayoffs, groupSets, NUMIMITATE, simulationParameters)
+			imitationUpdate!(population, roundPayoffs, groupBounds, NUMIMITATE, simulationParameters)
 		elseif updateMethod == "deathBirthUpdate"
 			deathBirthUpdate(population, roundPayoffs, NUMIMITATE, simulationParameters)
 		else
@@ -225,6 +190,8 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		end
 
 		mutatePopulation!(population, simulationParameters["ustrat"], NORMS)
+
+		groupBounds = sortPopulation(population,reputations, NUMGROUPS)
 		
 		endTime = time_ns()
 		elapsedSecs = (endTime - startTime) / 1.0e9
