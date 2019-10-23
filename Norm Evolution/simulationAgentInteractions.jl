@@ -40,7 +40,7 @@ end
 
 
 
-function batchUpdate!(simparams, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS)
+function batchUpdate!(simparams, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS, egalitarianAgentInteractions)
 	numagents::Int = length(NORMS) * simparams["NUMAGENTSPERNORM"]
 	batchsize::Int = simparams["BATCHSIZE"]
 
@@ -59,16 +59,23 @@ function batchUpdate!(simparams, reputations, population, groupBounds, roundPayo
 	b = 0
 	action = 0
 
-	groupBounds::Array{Int,1}
-	groupSizes = [groupBounds[i] - groupBounds[i-1] for i in 2:length(groupBounds)]
-	# println("groupSizes: $groupSizes")
+	if ! egalitarianAgentInteractions
 
-	cumGroupProbs = calculateCumulativeGroupProbs(simparams["groupWeights"],  groupSizes, groupBounds)
-	# println("groupProbs: $groupProbs")
+		groupBounds::Array{Int,1}
+		groupSizes = [groupBounds[i] - groupBounds[i-1] for i in 2:length(groupBounds)]
+		# println("groupSizes: $groupSizes")
+
+		cumGroupProbs = calculateCumulativeGroupProbs(simparams["groupWeights"],  groupSizes, groupBounds)
+		# println("groupProbs: $groupProbs")
+	end
 
 
 	for j in 1:batchsize
-		b = randomSelectGroupWeighted(cumGroupProbs, groupBounds)
+		if ! egalitarianAgentInteractions
+			b = randomSelectGroupWeighted(cumGroupProbs, groupBounds)
+		else
+			b = trunc(Int, ceil(rand() * numagents))
+		end
 		#adversary
 		action = reputations[normNumber, b]
 		# if !relativeNorms

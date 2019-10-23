@@ -1,9 +1,11 @@
 module simulationUpdateRules
 
-export imitationUpdate!, pairwiseComparison!, mutatePopulation!
+export imitationUpdate!, pairwiseComparison!, mutatePopulation!, deathBirthUpdate!, birthDeathUpdate!
 
 include("simulationUtilities.jl")
 using .simulationUtilities
+import StatsBase
+import LinearAlgebra
 
 function getAgentPair(numAgents, intergroupUpdateP, groupBounds, population)
 	ind1 = trunc(Int,ceil(rand() * numAgents)) 
@@ -84,17 +86,41 @@ function imitationUpdate!(population, roundPayoffs, numImitate, simParams)
 
 	numAgents = length(population)
 
-	payoffWeights = StatsBase.Weights(roundPayoffs)
+	fermiPayoffWeights = StatsBase.Weights(map(x -> exp( w * x), roundPayoffs))
 	uniformWeights = StatsBase.Weights(LinearAlgebra.ones(Float64, numAgents) / numAgents)
 
 	killed = StatsBase.sample(1:numAgents, uniformWeights, numImitate, replace=false)
-	replacements = StatsBase.sample(1:numAgents, map(x -> exp( w * x), roundPayoffs), numImitate)
+	replacements = StatsBase.sample(1:numAgents, fermiPayoffWeights , numImitate)
+
+	# updates = []
+	updates = map(i -> (killed[i], population[replacements[i]]), 1:numImitate)
+	# for i in 1:numImitate
+	# 	append!(updates, (killed[i], population[replacements[i]]))
+	# end
+
+	for update in updates
+		target, agent = update
+		population[target] = agent
+	end
+end
+
+function deathBirthUpdate!(population, roundPayoffs, numImitate, simParams)
+	w::Float64 = simParams["w"]
+
+	numAgents = length(population)
+
+	fermiPayoffWeights = StatsBase.Weights(map(x -> exp( w * x), roundPayoffs))
+	uniformWeights = StatsBase.Weights(LinearAlgebra.ones(Float64, numAgents) / numAgents)
+
+	killed = StatsBase.sample(1:numAgents, uniformWeights, numImitate, replace=false)
+	replacements = StatsBase.sample(1:numAgents, fermiPayoffWeights , numImitate)
 
 	updates = []
 
 	for i in 1:numAgents
-
-		append!(updates, (killed[i], population[replacements[i]]))
+		if ! in(replacements[i], killed)
+			append!(updates, (killed[i], population[replacements[i]]))
+		end
 	end
 
 	for update in updates
@@ -102,6 +128,33 @@ function imitationUpdate!(population, roundPayoffs, numImitate, simParams)
 		population[target] = agent
 	end
 end
+
+
+function birthDeathUpdate!(population, roundPayoffs, numImitate, simParams)
+	w::Float64 = simParams["w"]
+
+	numAgents = length(population)
+
+	fermiPayoffWeights = StatsBase.Weights(map(x -> exp( w * x), roundPayoffs))
+	uniformWeights = StatsBase.Weights(LinearAlgebra.ones(Float64, numAgents) / numAgents)
+
+	killed = StatsBase.sample(1:numAgents, uniformWeights, numImitate, replace=false)
+	replacements = StatsBase.sample(1:numAgents, fermiPayoffWeights , numImitate)
+
+	updates = []
+
+	for i in 1:numAgents
+		if ! in(killed[i], replacements)
+			append!(updates, (killed[i], population[replacements[i]]))
+		end
+	end
+
+	for update in updates
+		target, agent = update
+		population[target] = agent
+	end
+end
+
 
 # function calculateGroupSets(population, numGroups)
 # 	groupSets = [BitSet() for i in 1:numGroups]

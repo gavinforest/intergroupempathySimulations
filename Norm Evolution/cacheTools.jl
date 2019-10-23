@@ -27,17 +27,22 @@ function dictToAgent(agentDict)
 end
 
 function populationToDictionary(population)
-	population::Array{Agent,1}
+	# population::Array{Agent,1}
+	println("making population dictionary")
 	return [agentToDict(agent) for agent in population]
 end
 
 
 function statisticsToArrayDict(statistics)
+	# println("pre type assert")
 	statistics::Array{Tuple{Array{Float64,2}, Float64, Array{Int,1}},1}
+	# println("post type assert")
+	# println("length statistics: $(length(statistics))")
 	proportions = [tup[1] for tup in statistics]
 	cooperationRates = [tup[2] for tup in statistics]
 	typeNums = [tup[3] for tup in statistics]
 	d = Dict("proportions" => proportions, "cooperationRates" => cooperationRates, "typeNums" => typeNums)
+	# println("made statistics array dict")
 	return d
 end
 
@@ -56,9 +61,16 @@ end
 function saveState(filename, evoState)
 	h5open(filename * ".reputations.hdf5", "w") do file
 		write(file, "reputations", evoState.reputations)
+		println("Caching -- saved reputation")
 	end
 	open(filename * ".json", "w") do file
-		d = Dict("statistics" => statisticsToArrayDict(statistics), "population" => populationToDictionary(population))
+		println("caching -- starting stat dict")
+		statDict = statisticsToArrayDict(evoState.statistics)
+		println("caching -- made stat dict")
+		popDict = populationToDictionary(evoState.population)
+		println("caching -- made pop dict")
+		d = Dict("statistics" => statDict, "population" => popDict)
+		println("Caching -- generating dictionary JSON")
 		JSON.print(file, d)
 	end
 end
@@ -128,6 +140,7 @@ end
 
 function addToLedger(name, ID, generation, filename)
 	IDstring = string(ID)
+	println("starting to add to ledger")
 	ledger = JSON.parsefile(ledgerFilename)
 	ledger[name][IDstring]["generations"][generation] = filename
 	open(ledgerFilename, "w") do file

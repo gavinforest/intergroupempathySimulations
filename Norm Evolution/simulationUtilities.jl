@@ -2,24 +2,32 @@ module simulationUtilities
 
 using LinearAlgebra
 
-export sortPopulation!, calculateGroupProbs, randomSelectGroupWeighted
+export sortPopulation!, calculateCumulativeGroupProbs, randomSelectGroupWeighted
 
 include("simulationStructs.jl")
 using .simulationStructs
 
 function _getWeightedInd(weightedArray, r)
-	i = 1
-	while r > weightedArray[i]
-		i += 1
+	for (i,v) in enumerate(weightedArray)
+		if r < v
+			return i
+		end
 	end
-	return i
 end
 
 function calculateCumulativeGroupProbs(groupWeights, groupSizes, groupBounds)
 	groupWeights::Array{Float64, 1}
-	vals = map(x -> groupWeights[x] * groupSizes[x], 1:length(groupSizes))
+	vals = groupWeights .* groupSizes
+	# vals = map(x -> groupWeights[x] * groupSizes[x], 1:length(groupSizes))
 	vals = vals ./ sum(vals)
-	return [sum(vals[1:i]) for i in 1:length(vals)]
+	# summed = [vals[1]]
+	# for i in 2:length(vals)
+	# 	append!(summed, vals[i] + summed[end])
+	# end
+	summed = accumulate(+, vals)
+
+
+	return summed
 end
 
 function randomSelectGroupWeighted(cumulativeGroupProbs, groupBounds)
@@ -27,6 +35,7 @@ function randomSelectGroupWeighted(cumulativeGroupProbs, groupBounds)
 	groupBounds::Array{Int, 1}
 	g = _getWeightedInd(cumulativeGroupProbs, rand())
 	# println("Got group $g")
+	
 	return rand((groupBounds[g] + 1):groupBounds[g+1])
 end
 

@@ -163,11 +163,18 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 		cooperationRate = 0.0
 		cooperationRateDenominator = NUMAGENTS * INTERACTIONSPERAGENT
 
-
+		egalitarianAgentInteractions = true
+		for v in simulationParameters["groupWeights"]
+			for j in simulationParameters["groupWeights"]
+				if v != j
+					egalitarianAgentInteractions = false
+				end
+			end
+		end
 
 		for i in 1:NUMAGENTS * BATCHSPERAGENT
 
-			cooperationRate = batchUpdate!(simulationParameters, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS)
+			cooperationRate = batchUpdate!(simulationParameters, reputations, population, groupBounds, roundPayoffs, cooperationRate, NORMS, egalitarianAgentInteractions)
 			
 		end
 
@@ -186,6 +193,10 @@ function evolve(simulationParameters, runParameters, processSpecs, cacheChannel,
 			pairwiseComparison!(population, roundPayoffs, groupBounds, NUMIMITATE, simulationParameters)
 		elseif simulationParameters["updateMethod"] == "imitationUpdate"
 			imitationUpdate!(population, roundPayoffs, NUMIMITATE, simulationParameters)
+		elseif simulationParameters["updateMethod"] == "deathBirthUpdate"
+			deathBirthUpdate!(population, roundPayoffs, NUMIMITATE, simulationParameters)
+		elseif simulationParameters["updateMethod"] == "birthDeathUpdate"
+			birthDeathUpdate!(populationl, roundPayoffs, NUMIMITATE, simulationParameters)
 		else
 			println("BAD UPDATE METHOD: $updateMethod")
 		end
