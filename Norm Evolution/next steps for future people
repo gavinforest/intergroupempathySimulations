@@ -1,0 +1,3 @@
+Currently, the caching doesn't quite work -- something fails on the first attempt to cache but the 
+@async macro seems to be surpressing the runtime error. Not sure what's going on but it seems like
+there's some problem in the addToLedger function?
