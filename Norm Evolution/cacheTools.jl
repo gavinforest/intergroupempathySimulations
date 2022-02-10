@@ -70,9 +70,11 @@ function saveState(filename, evoState)
 		popDict = populationToDictionary(evoState.population)
 		println("caching -- made pop dict")
 		d = Dict("statistics" => statDict, "population" => popDict)
-		println("Caching -- generating dictionary JSON")
+		println("caching -- generating dictionary JSON")
 		JSON.print(file, d)
+		println("caching -- printed dictionary JSON")
 	end
+	println("caching -- finished saving state")
 end
 
 function readState(filename)
@@ -83,7 +85,7 @@ function readState(filename)
 	stats = d["statistics"]
 	population = d["population"]
 	population = map(dictToAgent, population)
-	statistics = arrayDictToStates(d["statistics"])
+	statistics = arrayDictToStates(d["statistics"]) #possible bug here, arrayDictToStats not States
 	return EvolutionState(population, reputations, statistics)
 end
 
@@ -142,7 +144,10 @@ function addToLedger(name, ID, generation, filename)
 	IDstring = string(ID)
 	println("starting to add to ledger")
 	ledger = JSON.parsefile(ledgerFilename)
+	@info "caching -- parsed file"
+	@info ""
 	ledger[name][IDstring]["generations"][generation] = filename
+	@info "caching -- modified dict"
 	open(ledgerFilename, "w") do file
 		JSON.print(file, ledger)
 	end
@@ -152,9 +157,9 @@ function cacheState(name, ID, generation, state)
 	IDstring = string(ID)
 	filename = cacheDir * name * "/" * IDstring * "/" * string(time_ns())
 	saveState(filename, state)
-	prinln("caching -- saved state")
+	@info "caching -- Saved state for ID $ID , generation $generation"
 	addToLedger(name, ID, generation, filename)
-	println("caching -- added to ledger")
+	@info "caching -- added to ledger"
 end
 
 function getFilename(name, ID, generation)

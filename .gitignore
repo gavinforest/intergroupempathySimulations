@@ -2,3 +2,15 @@
 randomTests.py
 figures/1562872139empathyFigure3.pdf
 figures/1562873266empathyFigure3.pdf
+
+.ipynb_checkpoints/*
+__pycache__/*
+pickles/*
+
+cached/*
+
+.DS_store
+
+.runs.ipynb.icloud
+
+*/.ipynb_checkpoints

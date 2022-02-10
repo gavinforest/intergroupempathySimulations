@@ -95,7 +95,7 @@ function cachingLoop(cacheChannel)
 	while true
 		toCache = take!(cacheChannel)
 		cacheTools.cacheState(toCache...)
-		println("Cached in caching loop")
+		@info "Cached in caching loop"
 	end
 end
 
